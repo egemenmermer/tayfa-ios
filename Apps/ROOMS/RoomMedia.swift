@@ -871,7 +871,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             pictureInPicture.update(track: remote.track, mirrored: false, landscape: false); return
         }
         if let own = cameras.first(where: { $0.local }), let track = own.track {
-            pictureInPicture.update(track: track, mirrored: camera.front, landscape: false); return
+            pictureInPicture.update(track: track, mirrored: false, landscape: false); return
         }
         pictureInPicture.update(track: nil, mirrored: false, landscape: false)
     }

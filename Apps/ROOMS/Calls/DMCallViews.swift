@@ -47,7 +47,7 @@ struct DMCallScreen: View {
                     }
                 }.clipShape(RoundedRectangle(cornerRadius: 22))
                 if let feed = ownFeed, let track = feed.track {
-                    SwiftUIVideoView(track, layoutMode: .fill, mirrorMode: media.camera.front ? .mirror : .off).allowsHitTesting(false)
+                    SwiftUIVideoView(track, layoutMode: .fill, mirrorMode: .off).allowsHitTesting(false)
                         .frame(width: 104, height: 140).clipShape(RoundedRectangle(cornerRadius: 14)).padding(10)
                         .accessibilityLabel("Kameran")
                 }

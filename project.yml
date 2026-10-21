@@ -25,7 +25,7 @@ settings:
     DEVELOPMENT_TEAM: U95637XJ6C
     PRODUCT_BUNDLE_IDENTIFIER: com.egemenmermer.rooms.mobile
     MARKETING_VERSION: 0.1.0
-    CURRENT_PROJECT_VERSION: '23'
+    CURRENT_PROJECT_VERSION: '24'
 targets:
   ROOMS:
     type: application

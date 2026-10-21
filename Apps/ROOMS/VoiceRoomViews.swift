@@ -237,7 +237,8 @@ struct CameraParticipantTile: View {
             ZStack {
                 Palette.raised
                 if let feed = media.cameras.first(where: { $0.id == person.id }), let track = feed.track {
-                    SwiftUIVideoView(track, layoutMode: .fill, mirrorMode: feed.local && media.camera.front ? .mirror : .off)
+                    // Your own camera shows as others see it, never mirrored.
+                    SwiftUIVideoView(track, layoutMode: .fill, mirrorMode: .off)
                         .allowsHitTesting(false)
                 } else { ChatAvatarView(chat: chat, userID: person.id, name: person.name, size: compact ? 32 : 58) }
                 VStack { HStack { Spacer(); if person.deafened || person.muted { HStack(spacing: 5) { Image(systemName: "mic.slash"); if person.deafened { Image(systemName: "headphones.slash") } }.font(.caption2).padding(7).background(.black.opacity(0.45), in: Capsule()).accessibilityElement(children: .ignore).accessibilityLabel(person.deafened ? "Mikrofon kapalı, sağırlaştırdı" : "Mikrofon kapalı") } }; Spacer(); HStack { Text(person.name + (person.local ? " (sen)" : "")).font(compact ? .caption2 : .caption).lineLimit(1).padding(.horizontal, 7).padding(.vertical, 4).background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6)); Spacer(minLength: 0) } }.padding(8)
