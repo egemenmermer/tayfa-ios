@@ -1,0 +1,101 @@
+name: ROOMS
+options:
+  deploymentTarget:
+    iOS: '17.0'
+packages:
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift.git
+    exactVersion: 2.17.0
+  RoomsCore:
+    path: Packages/RoomsCore
+configs:
+  Debug: debug
+  Release: release
+configFiles:
+  Debug: Configuration/App.xcconfig
+  Release: Configuration/App.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '17.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: U95637XJ6C
+    PRODUCT_BUNDLE_IDENTIFIER: com.egemenmermer.rooms.mobile
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: '23'
+targets:
+  ROOMS:
+    type: application
+    platform: iOS
+    sources:
+      - Apps/ROOMS
+    dependencies:
+      - package: LiveKit
+      - package: RoomsCore
+      - target: ROOMSBroadcast
+    entitlements:
+      path: Apps/ROOMS/ROOMS.entitlements
+      properties:
+        aps-environment: development
+        com.apple.security.application-groups: [group.com.egemenmermer.rooms.mobile]
+    info:
+      path: Apps/ROOMS/Info.plist
+      properties:
+        CFBundleDisplayName: Tayfa
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ROOMSAPIOrigin: $(ROOMS_API_ORIGIN)
+        NSCameraUsageDescription: Tayfa, kameranı yalnızca sesli odada kamerayı açtığında kullanır.
+        NSMicrophoneUsageDescription: Tayfa, mikrofonu yalnızca sesli odada konuşmayı açtığında kullanır.
+        UIBackgroundModes: [audio, voip]
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        ITSAppUsesNonExemptEncryption: false
+        UIUserInterfaceStyle: Dark
+        RTCAppGroupIdentifier: group.com.egemenmermer.rooms.mobile
+        RTCScreenSharingExtension: com.egemenmermer.rooms.mobile.broadcast
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: '1'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+  ROOMSBroadcast:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Apps/ROOMSBroadcast
+    dependencies:
+      - package: LiveKit
+    entitlements:
+      path: Apps/ROOMSBroadcast/ROOMSBroadcast.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.egemenmermer.rooms.mobile]
+    info:
+      path: Apps/ROOMSBroadcast/Info.plist
+      properties:
+        CFBundleDisplayName: Tayfa
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        RTCAppGroupIdentifier: group.com.egemenmermer.rooms.mobile
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
+          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.egemenmermer.rooms.mobile.broadcast
+        TARGETED_DEVICE_FAMILY: '1'
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        SKIP_INSTALL: YES
+schemes:
+  ROOMS:
+    build:
+      targets:
+        ROOMS: all
+    run:
+      config: Debug
+    archive:
+      config: Release

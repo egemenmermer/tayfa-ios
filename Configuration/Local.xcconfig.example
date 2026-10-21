@@ -1,0 +1,3 @@
+// Copy to Configuration/Local.xcconfig and point it at your own community server.
+// The empty $() keeps xcconfig from reading "//" as the start of a comment.
+ROOMS_API_ORIGIN = https:/$()/rooms.example.com

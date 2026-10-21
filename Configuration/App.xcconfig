@@ -1,0 +1,5 @@
+// The community server this build talks to. Set it in Configuration/Local.xcconfig
+// (gitignored; copy Local.xcconfig.example). Without it the app fails closed.
+ROOMS_API_ORIGIN =
+#include? "Local.xcconfig"
+#include? "Signing.local.xcconfig"

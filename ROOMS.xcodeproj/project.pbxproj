@@ -1,0 +1,703 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0A07736898E195749BA99E30 /* HallPlayerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B45C098339191CE17B53A4 /* HallPlayerController.swift */; };
+		0EC15AD7E0D3B5AA8014E39D /* DMCallModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E4D5AD54463F85FB065B19 /* DMCallModel.swift */; };
+		15741FDC01D44573E8FA2308 /* CommunityShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4385422CB005B5AE28FD2FB4 /* CommunityShell.swift */; };
+		1EA3F899AE799A574946EB55 /* ROOMSBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8CA97836AD572B9C0CD1F276 /* ROOMSBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		210C87D39039A17B09B6D943 /* RichChatViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF13E1AE59DE5231D74B532A /* RichChatViews.swift */; };
+		24C4C4BBB420CF341BD33F23 /* RoomsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3753C1ADA5A7B4BB0EBD403E /* RoomsCore */; };
+		28CBE3538DEE6EA3F39E3B08 /* HallBrowseViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B9E93D4BFD4785FEC60C1A /* HallBrowseViews.swift */; };
+		2A692D451500328EECFE1FAE /* CinemaHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83EC309DE56BB4F71E334C3 /* CinemaHub.swift */; };
+		349A34F424BC155B5E3F2EE6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 68D7DD67CF3319C5862DC8F5 /* Assets.xcassets */; };
+		36F5E46BDE62CB84A85CB07F /* PersonalSoundSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE0D19322145F1C5CFEF275 /* PersonalSoundSettingsView.swift */; };
+		447E3187AE4D1CC64D77C6FD /* DJLibraryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC58B22BE6880546A92F8759 /* DJLibraryViews.swift */; };
+		54EF4B106FBCACC4FB7FD9FF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E8D0BCD94AED2E6F97C112BB /* PrivacyInfo.xcprivacy */; };
+		5BF18925D6A160EFD3DC4A04 /* DJPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1357D5705A2C5D325E7CB67 /* DJPanelView.swift */; };
+		5ECDB302ABCEDCEBE534012A /* ChatViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE6D5987CB7C46D46282B0A /* ChatViews.swift */; };
+		650B34FA037F2F2CA925AB8F /* CallPictureInPicture.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE95679C675815004C75D758 /* CallPictureInPicture.swift */; };
+		6963674F452DC9E43B9CC291 /* CinemaRelayLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69FE7B6A6E34866102DDA495 /* CinemaRelayLoader.swift */; };
+		69B9DEAB5329C797BE4C729B /* VoiceModerationSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F062BDF869C02C49157B1B /* VoiceModerationSection.swift */; };
+		6DD76E75A4D8A8914845CB61 /* RoomMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = F028B9078044BEDC1BA68EAC /* RoomMedia.swift */; };
+		73CBA89DADF81EC89CB697D3 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 34877FCDDAF3D52923FB671C /* LiveKit */; };
+		7649DAF19AE5A5F66CA49568 /* RoomsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC8DCE62E83593F4DCF52CF /* RoomsApp.swift */; };
+		98A9392373CEC2F4F7BC2BD8 /* RoomsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87042FB0DF7045611CF84C34 /* RoomsModel.swift */; };
+		992BD1E97521CB5A4A2793D5 /* HallPlayerSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059C04F84522F9D1B2A0D3F0 /* HallPlayerSurface.swift */; };
+		A21E6365AEA099AC4BB37453 /* HallModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B586C40071447D46261C72 /* HallModel.swift */; };
+		AA416EC78D4B6C0C75BAA36D /* DMCallWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB4AA902EC4C58D7D5001B32 /* DMCallWindow.swift */; };
+		AF48C622C75442A5F51F82BD /* ChatMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB9197E2C4D860A437947AD /* ChatMedia.swift */; };
+		C06678988507366E1B57EDC9 /* RoomAudioSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B241AEBFE37B000735A450D8 /* RoomAudioSettingsView.swift */; };
+		C4B32EF305A97D557F61A45B /* ChatPickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39323D4621392D9CDA5A7F95 /* ChatPickers.swift */; };
+		C67C6BE3E43DAFEE912304B4 /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC1B4887027A88554454CF6 /* SampleHandler.swift */; };
+		CC2F71D51AA54D4E90C80A14 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9160BF75D3A87201002173D8 /* LiveKit */; };
+		D6A222B2C7A3DDAECF2FFACA /* CinemaHallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6372223556D4DDE333AFA87 /* CinemaHallView.swift */; };
+		D7C9260B1D025A4077F58A39 /* Gateway.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE72DED9F0504330209809C /* Gateway.swift */; };
+		DC3CF7BCF5F1EDA118401FEC /* PushNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEA03645B2E25A30CCF74F29 /* PushNotifications.swift */; };
+		E4C6EF50334AF380C7B259BB /* SessionVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = B280EAD36B0ED51F2CB51944 /* SessionVault.swift */; };
+		E751691AADE151E2A371DDF6 /* HallSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F2EA67831574D2DDA25032E /* HallSidebar.swift */; };
+		ED96038D2D6E51AF2B44F394 /* VoiceRoomViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9CF54999AE2ABCE4ACC1DBC /* VoiceRoomViews.swift */; };
+		EF242772E96BB1F15CBE4AD2 /* DMCallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C82A9B1DC8DD9798DA5F4D50 /* DMCallViews.swift */; };
+		F0BBEAD37FEDFC260C7B8D6E /* WhiteboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F132DB871B380F1A0D8AD877 /* WhiteboardView.swift */; };
+		F1C5B6B05BC84AE793DEF4B3 /* WatchTogether.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC61F9BCAC4026776CBB4A70 /* WatchTogether.swift */; };
+		FA0F5E0F5EC575589651B031 /* NativeRoomCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF935ADA2E8CD2BFBF251F3 /* NativeRoomCamera.swift */; };
+		FF5B796B536BF243AFBCD6C2 /* FullScreenStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 980C75121CA540DB7D26CF4C /* FullScreenStreamView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9E208F77D8BB5F121760B358 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E660C81BA8B4FA28FB4FAFF5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3EDAE3D90E26DC38DB90E3C3;
+			remoteInfo = ROOMSBroadcast;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5E33EF926FAB3C4B97490E7E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				1EA3F899AE799A574946EB55 /* ROOMSBroadcast.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		04B45C098339191CE17B53A4 /* HallPlayerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HallPlayerController.swift; sourceTree = "<group>"; };
+		059C04F84522F9D1B2A0D3F0 /* HallPlayerSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HallPlayerSurface.swift; sourceTree = "<group>"; };
+		16B451DF8AAE9DB8111597DF /* ROOMS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ROOMS.entitlements; sourceTree = "<group>"; };
+		30F062BDF869C02C49157B1B /* VoiceModerationSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceModerationSection.swift; sourceTree = "<group>"; };
+		32FBA199DEB83ED6158D716C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		36F8CE585394E25FEEACC4E7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		39323D4621392D9CDA5A7F95 /* ChatPickers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPickers.swift; sourceTree = "<group>"; };
+		3F2EA67831574D2DDA25032E /* HallSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HallSidebar.swift; sourceTree = "<group>"; };
+		3FE72DED9F0504330209809C /* Gateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gateway.swift; sourceTree = "<group>"; };
+		4385422CB005B5AE28FD2FB4 /* CommunityShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityShell.swift; sourceTree = "<group>"; };
+		4FF935ADA2E8CD2BFBF251F3 /* NativeRoomCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRoomCamera.swift; sourceTree = "<group>"; };
+		68D7DD67CF3319C5862DC8F5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		69FE7B6A6E34866102DDA495 /* CinemaRelayLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CinemaRelayLoader.swift; sourceTree = "<group>"; };
+		74B586C40071447D46261C72 /* HallModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HallModel.swift; sourceTree = "<group>"; };
+		87042FB0DF7045611CF84C34 /* RoomsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomsModel.swift; sourceTree = "<group>"; };
+		8857278D8C5A1E5B5197A79C /* ROOMS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ROOMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8CA97836AD572B9C0CD1F276 /* ROOMSBroadcast.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ROOMSBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		980C75121CA540DB7D26CF4C /* FullScreenStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenStreamView.swift; sourceTree = "<group>"; };
+		A88FEC9C6FC4920213579CF6 /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
+		AF13E1AE59DE5231D74B532A /* RichChatViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichChatViews.swift; sourceTree = "<group>"; };
+		AFC8DCE62E83593F4DCF52CF /* RoomsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomsApp.swift; sourceTree = "<group>"; };
+		AFE0D19322145F1C5CFEF275 /* PersonalSoundSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalSoundSettingsView.swift; sourceTree = "<group>"; };
+		B241AEBFE37B000735A450D8 /* RoomAudioSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomAudioSettingsView.swift; sourceTree = "<group>"; };
+		B280EAD36B0ED51F2CB51944 /* SessionVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionVault.swift; sourceTree = "<group>"; };
+		B415E1B650721A923B67591F /* ROOMSBroadcast.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ROOMSBroadcast.entitlements; sourceTree = "<group>"; };
+		BFE6D5987CB7C46D46282B0A /* ChatViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViews.swift; sourceTree = "<group>"; };
+		C3B9E93D4BFD4785FEC60C1A /* HallBrowseViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HallBrowseViews.swift; sourceTree = "<group>"; };
+		C4E4D5AD54463F85FB065B19 /* DMCallModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMCallModel.swift; sourceTree = "<group>"; };
+		C82A9B1DC8DD9798DA5F4D50 /* DMCallViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMCallViews.swift; sourceTree = "<group>"; };
+		CAB9197E2C4D860A437947AD /* ChatMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMedia.swift; sourceTree = "<group>"; };
+		CBC1B4887027A88554454CF6 /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
+		CE95679C675815004C75D758 /* CallPictureInPicture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallPictureInPicture.swift; sourceTree = "<group>"; };
+		D6372223556D4DDE333AFA87 /* CinemaHallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CinemaHallView.swift; sourceTree = "<group>"; };
+		D83EC309DE56BB4F71E334C3 /* CinemaHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CinemaHub.swift; sourceTree = "<group>"; };
+		DC61F9BCAC4026776CBB4A70 /* WatchTogether.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTogether.swift; sourceTree = "<group>"; };
+		E1357D5705A2C5D325E7CB67 /* DJPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJPanelView.swift; sourceTree = "<group>"; };
+		E8D0BCD94AED2E6F97C112BB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		EEA03645B2E25A30CCF74F29 /* PushNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotifications.swift; sourceTree = "<group>"; };
+		F028B9078044BEDC1BA68EAC /* RoomMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomMedia.swift; sourceTree = "<group>"; };
+		F132DB871B380F1A0D8AD877 /* WhiteboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhiteboardView.swift; sourceTree = "<group>"; };
+		F9CF54999AE2ABCE4ACC1DBC /* VoiceRoomViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRoomViews.swift; sourceTree = "<group>"; };
+		FB4AA902EC4C58D7D5001B32 /* DMCallWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMCallWindow.swift; sourceTree = "<group>"; };
+		FC58B22BE6880546A92F8759 /* DJLibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJLibraryViews.swift; sourceTree = "<group>"; };
+		FE58ADE9082806C370F9ED0A /* RoomsCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RoomsCore; path = Packages/RoomsCore; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1F908979B79FA12C5E453420 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC2F71D51AA54D4E90C80A14 /* LiveKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5B5BA3A6B57D9E8B314A15C6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				73CBA89DADF81EC89CB697D3 /* LiveKit in Frameworks */,
+				24C4C4BBB420CF341BD33F23 /* RoomsCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1B546437946AC9833685415F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8857278D8C5A1E5B5197A79C /* ROOMS.app */,
+				8CA97836AD572B9C0CD1F276 /* ROOMSBroadcast.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1F96CC77880A4CD21345A39D /* ROOMS */ = {
+			isa = PBXGroup;
+			children = (
+				68D7DD67CF3319C5862DC8F5 /* Assets.xcassets */,
+				CE95679C675815004C75D758 /* CallPictureInPicture.swift */,
+				CAB9197E2C4D860A437947AD /* ChatMedia.swift */,
+				39323D4621392D9CDA5A7F95 /* ChatPickers.swift */,
+				BFE6D5987CB7C46D46282B0A /* ChatViews.swift */,
+				4385422CB005B5AE28FD2FB4 /* CommunityShell.swift */,
+				FC58B22BE6880546A92F8759 /* DJLibraryViews.swift */,
+				E1357D5705A2C5D325E7CB67 /* DJPanelView.swift */,
+				980C75121CA540DB7D26CF4C /* FullScreenStreamView.swift */,
+				3FE72DED9F0504330209809C /* Gateway.swift */,
+				36F8CE585394E25FEEACC4E7 /* Info.plist */,
+				4FF935ADA2E8CD2BFBF251F3 /* NativeRoomCamera.swift */,
+				AFE0D19322145F1C5CFEF275 /* PersonalSoundSettingsView.swift */,
+				E8D0BCD94AED2E6F97C112BB /* PrivacyInfo.xcprivacy */,
+				EEA03645B2E25A30CCF74F29 /* PushNotifications.swift */,
+				AF13E1AE59DE5231D74B532A /* RichChatViews.swift */,
+				B241AEBFE37B000735A450D8 /* RoomAudioSettingsView.swift */,
+				F028B9078044BEDC1BA68EAC /* RoomMedia.swift */,
+				16B451DF8AAE9DB8111597DF /* ROOMS.entitlements */,
+				AFC8DCE62E83593F4DCF52CF /* RoomsApp.swift */,
+				87042FB0DF7045611CF84C34 /* RoomsModel.swift */,
+				B280EAD36B0ED51F2CB51944 /* SessionVault.swift */,
+				F9CF54999AE2ABCE4ACC1DBC /* VoiceRoomViews.swift */,
+				DC61F9BCAC4026776CBB4A70 /* WatchTogether.swift */,
+				594B6D0D8961649F42E43661 /* Calls */,
+				BD411A30B2F201D96C7DDD17 /* Cinema */,
+				EA0A694331958432CB2C436B /* Moderation */,
+				AF51B4D1CE06BD7C4D571EAC /* Whiteboard */,
+			);
+			name = ROOMS;
+			path = Apps/ROOMS;
+			sourceTree = "<group>";
+		};
+		3D21AE302255D32734AE32D8 /* ROOMSBroadcast */ = {
+			isa = PBXGroup;
+			children = (
+				32FBA199DEB83ED6158D716C /* Info.plist */,
+				B415E1B650721A923B67591F /* ROOMSBroadcast.entitlements */,
+				CBC1B4887027A88554454CF6 /* SampleHandler.swift */,
+			);
+			name = ROOMSBroadcast;
+			path = Apps/ROOMSBroadcast;
+			sourceTree = "<group>";
+		};
+		594B6D0D8961649F42E43661 /* Calls */ = {
+			isa = PBXGroup;
+			children = (
+				C4E4D5AD54463F85FB065B19 /* DMCallModel.swift */,
+				C82A9B1DC8DD9798DA5F4D50 /* DMCallViews.swift */,
+				FB4AA902EC4C58D7D5001B32 /* DMCallWindow.swift */,
+			);
+			path = Calls;
+			sourceTree = "<group>";
+		};
+		78E346FD123072F5E0BABAB5 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				A88FEC9C6FC4920213579CF6 /* App.xcconfig */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		8D669C7160C4D26E2C7F4804 = {
+			isa = PBXGroup;
+			children = (
+				78E346FD123072F5E0BABAB5 /* Configuration */,
+				B4EE07B5C3899398EC709B35 /* Packages */,
+				1F96CC77880A4CD21345A39D /* ROOMS */,
+				3D21AE302255D32734AE32D8 /* ROOMSBroadcast */,
+				1B546437946AC9833685415F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AF51B4D1CE06BD7C4D571EAC /* Whiteboard */ = {
+			isa = PBXGroup;
+			children = (
+				F132DB871B380F1A0D8AD877 /* WhiteboardView.swift */,
+			);
+			path = Whiteboard;
+			sourceTree = "<group>";
+		};
+		B4EE07B5C3899398EC709B35 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				FE58ADE9082806C370F9ED0A /* RoomsCore */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		BD411A30B2F201D96C7DDD17 /* Cinema */ = {
+			isa = PBXGroup;
+			children = (
+				D6372223556D4DDE333AFA87 /* CinemaHallView.swift */,
+				D83EC309DE56BB4F71E334C3 /* CinemaHub.swift */,
+				69FE7B6A6E34866102DDA495 /* CinemaRelayLoader.swift */,
+				C3B9E93D4BFD4785FEC60C1A /* HallBrowseViews.swift */,
+				74B586C40071447D46261C72 /* HallModel.swift */,
+				04B45C098339191CE17B53A4 /* HallPlayerController.swift */,
+				059C04F84522F9D1B2A0D3F0 /* HallPlayerSurface.swift */,
+				3F2EA67831574D2DDA25032E /* HallSidebar.swift */,
+			);
+			path = Cinema;
+			sourceTree = "<group>";
+		};
+		EA0A694331958432CB2C436B /* Moderation */ = {
+			isa = PBXGroup;
+			children = (
+				30F062BDF869C02C49157B1B /* VoiceModerationSection.swift */,
+			);
+			path = Moderation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3EDAE3D90E26DC38DB90E3C3 /* ROOMSBroadcast */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0B4F9ECCCE06CADD51A1779 /* Build configuration list for PBXNativeTarget "ROOMSBroadcast" */;
+			buildPhases = (
+				35939DF2CC63B907E32CF9E0 /* Sources */,
+				1F908979B79FA12C5E453420 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ROOMSBroadcast;
+			packageProductDependencies = (
+				9160BF75D3A87201002173D8 /* LiveKit */,
+			);
+			productName = ROOMSBroadcast;
+			productReference = 8CA97836AD572B9C0CD1F276 /* ROOMSBroadcast.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		637EF1BF9F03E4FD1196922A /* ROOMS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 94EF67F2484A63D647852F26 /* Build configuration list for PBXNativeTarget "ROOMS" */;
+			buildPhases = (
+				B61FA92904DF78357199FD80 /* Sources */,
+				66A7107EB3D5427FEDAA3FC9 /* Resources */,
+				5B5BA3A6B57D9E8B314A15C6 /* Frameworks */,
+				5E33EF926FAB3C4B97490E7E /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0EBFA30C155B89ABF3AD3345 /* PBXTargetDependency */,
+			);
+			name = ROOMS;
+			packageProductDependencies = (
+				34877FCDDAF3D52923FB671C /* LiveKit */,
+				3753C1ADA5A7B4BB0EBD403E /* RoomsCore */,
+			);
+			productName = ROOMS;
+			productReference = 8857278D8C5A1E5B5197A79C /* ROOMS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E660C81BA8B4FA28FB4FAFF5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					3EDAE3D90E26DC38DB90E3C3 = {
+						DevelopmentTeam = U95637XJ6C;
+						ProvisioningStyle = Automatic;
+					};
+					637EF1BF9F03E4FD1196922A = {
+						DevelopmentTeam = U95637XJ6C;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 4848FF6159EA9022E15450DF /* Build configuration list for PBXProject "ROOMS" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 8D669C7160C4D26E2C7F4804;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				3EE0D042C585BD3A0BDC893D /* XCRemoteSwiftPackageReference "client-sdk-swift" */,
+				7CC83C1B4BF5DD539E3D8CB4 /* XCLocalSwiftPackageReference "Packages/RoomsCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 1B546437946AC9833685415F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				637EF1BF9F03E4FD1196922A /* ROOMS */,
+				3EDAE3D90E26DC38DB90E3C3 /* ROOMSBroadcast */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		66A7107EB3D5427FEDAA3FC9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				349A34F424BC155B5E3F2EE6 /* Assets.xcassets in Resources */,
+				54EF4B106FBCACC4FB7FD9FF /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		35939DF2CC63B907E32CF9E0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C67C6BE3E43DAFEE912304B4 /* SampleHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B61FA92904DF78357199FD80 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				650B34FA037F2F2CA925AB8F /* CallPictureInPicture.swift in Sources */,
+				AF48C622C75442A5F51F82BD /* ChatMedia.swift in Sources */,
+				C4B32EF305A97D557F61A45B /* ChatPickers.swift in Sources */,
+				5ECDB302ABCEDCEBE534012A /* ChatViews.swift in Sources */,
+				D6A222B2C7A3DDAECF2FFACA /* CinemaHallView.swift in Sources */,
+				2A692D451500328EECFE1FAE /* CinemaHub.swift in Sources */,
+				6963674F452DC9E43B9CC291 /* CinemaRelayLoader.swift in Sources */,
+				15741FDC01D44573E8FA2308 /* CommunityShell.swift in Sources */,
+				447E3187AE4D1CC64D77C6FD /* DJLibraryViews.swift in Sources */,
+				5BF18925D6A160EFD3DC4A04 /* DJPanelView.swift in Sources */,
+				0EC15AD7E0D3B5AA8014E39D /* DMCallModel.swift in Sources */,
+				EF242772E96BB1F15CBE4AD2 /* DMCallViews.swift in Sources */,
+				AA416EC78D4B6C0C75BAA36D /* DMCallWindow.swift in Sources */,
+				FF5B796B536BF243AFBCD6C2 /* FullScreenStreamView.swift in Sources */,
+				D7C9260B1D025A4077F58A39 /* Gateway.swift in Sources */,
+				28CBE3538DEE6EA3F39E3B08 /* HallBrowseViews.swift in Sources */,
+				A21E6365AEA099AC4BB37453 /* HallModel.swift in Sources */,
+				0A07736898E195749BA99E30 /* HallPlayerController.swift in Sources */,
+				992BD1E97521CB5A4A2793D5 /* HallPlayerSurface.swift in Sources */,
+				E751691AADE151E2A371DDF6 /* HallSidebar.swift in Sources */,
+				FA0F5E0F5EC575589651B031 /* NativeRoomCamera.swift in Sources */,
+				36F5E46BDE62CB84A85CB07F /* PersonalSoundSettingsView.swift in Sources */,
+				DC3CF7BCF5F1EDA118401FEC /* PushNotifications.swift in Sources */,
+				210C87D39039A17B09B6D943 /* RichChatViews.swift in Sources */,
+				C06678988507366E1B57EDC9 /* RoomAudioSettingsView.swift in Sources */,
+				6DD76E75A4D8A8914845CB61 /* RoomMedia.swift in Sources */,
+				7649DAF19AE5A5F66CA49568 /* RoomsApp.swift in Sources */,
+				98A9392373CEC2F4F7BC2BD8 /* RoomsModel.swift in Sources */,
+				E4C6EF50334AF380C7B259BB /* SessionVault.swift in Sources */,
+				69B9DEAB5329C797BE4C729B /* VoiceModerationSection.swift in Sources */,
+				ED96038D2D6E51AF2B44F394 /* VoiceRoomViews.swift in Sources */,
+				F1C5B6B05BC84AE793DEF4B3 /* WatchTogether.swift in Sources */,
+				F0BBEAD37FEDFC260C7B8D6E /* WhiteboardView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0EBFA30C155B89ABF3AD3345 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3EDAE3D90E26DC38DB90E3C3 /* ROOMSBroadcast */;
+			targetProxy = 9E208F77D8BB5F121760B358 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0C07B67F440CEE01D5CA32A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A88FEC9C6FC4920213579CF6 /* App.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 23;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = U95637XJ6C;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.egemenmermer.rooms.mobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		50E141D66953E271EB2BB468 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/ROOMSBroadcast/ROOMSBroadcast.entitlements;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = Apps/ROOMSBroadcast/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.egemenmermer.rooms.mobile.broadcast;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		71FA1AFE75893F976B7FE251 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/ROOMS/ROOMS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = Apps/ROOMS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B5724BFFE5467A4E36470000 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A88FEC9C6FC4920213579CF6 /* App.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 23;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = U95637XJ6C;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.egemenmermer.rooms.mobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C2CD10709581B877F7AC2A24 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/ROOMS/ROOMS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = Apps/ROOMS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D1FF38F5C090E0C691F2B78E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Apps/ROOMSBroadcast/ROOMSBroadcast.entitlements;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = Apps/ROOMSBroadcast/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.egemenmermer.rooms.mobile.broadcast;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4848FF6159EA9022E15450DF /* Build configuration list for PBXProject "ROOMS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B5724BFFE5467A4E36470000 /* Debug */,
+				0C07B67F440CEE01D5CA32A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		94EF67F2484A63D647852F26 /* Build configuration list for PBXNativeTarget "ROOMS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2CD10709581B877F7AC2A24 /* Debug */,
+				71FA1AFE75893F976B7FE251 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B0B4F9ECCCE06CADD51A1779 /* Build configuration list for PBXNativeTarget "ROOMSBroadcast" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1FF38F5C090E0C691F2B78E /* Debug */,
+				50E141D66953E271EB2BB468 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		7CC83C1B4BF5DD539E3D8CB4 /* XCLocalSwiftPackageReference "Packages/RoomsCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/RoomsCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		3EE0D042C585BD3A0BDC893D /* XCRemoteSwiftPackageReference "client-sdk-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/livekit/client-sdk-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.17.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		34877FCDDAF3D52923FB671C /* LiveKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3EE0D042C585BD3A0BDC893D /* XCRemoteSwiftPackageReference "client-sdk-swift" */;
+			productName = LiveKit;
+		};
+		3753C1ADA5A7B4BB0EBD403E /* RoomsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RoomsCore;
+		};
+		9160BF75D3A87201002173D8 /* LiveKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3EE0D042C585BD3A0BDC893D /* XCRemoteSwiftPackageReference "client-sdk-swift" */;
+			productName = LiveKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = E660C81BA8B4FA28FB4FAFF5 /* Project object */;
+}
