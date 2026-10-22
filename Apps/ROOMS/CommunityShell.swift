@@ -460,7 +460,7 @@ private struct CommunitySheet: View {
     let textChannelID: String?
     let channelCount: Int
     @Environment(\.dismiss) private var dismiss
-    @State private var invite: (code: String, link: String)?
+    @State private var invite: (code: String, link: String, expiresAt: Date?)?
     @State private var creating = false
     @State private var problem: String?
     var body: some View {
@@ -489,13 +489,13 @@ private struct CommunitySheet: View {
                         }
                         if let invite {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("DAVET KODU").font(.caption2.bold()).foregroundStyle(.secondary)
-                                Text(invite.code).font(.system(.footnote, design: .monospaced)).textSelection(.enabled).lineLimit(3)
+                                Text("DAVET BAĞLANTISI").font(.caption2.bold()).foregroundStyle(.secondary)
+                                Text(invite.link).font(.system(.footnote, design: .monospaced)).textSelection(.enabled).lineLimit(3)
                                 HStack(spacing: 10) {
-                                    Button { UIPasteboard.general.string = invite.code } label: { Label("Kodu kopyala", systemImage: "doc.on.doc") }.buttonStyle(.bordered)
-                                    ShareLink(item: "Tayfa'ya katıl: \(invite.link)\nDavet kodu: \(invite.code)") { Label("Paylaş", systemImage: "square.and.arrow.up") }.buttonStyle(.bordered)
+                                    Button { UIPasteboard.general.string = invite.link } label: { Label("Bağlantıyı kopyala", systemImage: "doc.on.doc") }.buttonStyle(.bordered)
+                                    ShareLink(item: "Tayfa'ya katıl: \(invite.link)") { Label("Paylaş", systemImage: "square.and.arrow.up") }.buttonStyle(.bordered)
                                 }
-                                Text("Arkadaşın Tayfa'yı açıp bu kodla katılabilir.").font(.caption).foregroundStyle(.secondary)
+                                Text(inviteNote(invite.expiresAt)).font(.caption).foregroundStyle(.secondary)
                             }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(Palette.raised, in: RoundedRectangle(cornerRadius: 14))
                         }
                         if let problem { Text(problem).font(.footnote).foregroundStyle(.secondary) }
@@ -509,6 +509,11 @@ private struct CommunitySheet: View {
         }
         .presentationDetents([.medium, .large])
         .task { if let id = community?.id { chat.loadMemberList(serverID: id) } }
+    }
+    /// What the link does and how long it lasts, as on desktop (10 people, 7 days by default).
+    private func inviteNote(_ expires: Date?) -> String {
+        let days = expires.map { max(1, Int(($0.timeIntervalSinceNow / 86_400).rounded())) } ?? 7
+        return "Bağlantıyı açan arkadaşın Tayfa'yı indirip bu davetle katılır. \(days) gün geçerli, en fazla 10 kişi kullanabilir."
     }
     private func makeInvite() async {
         guard let textChannelID, !creating else { return }

@@ -420,13 +420,24 @@ import RoomsCore
     func addFriend(_ handle: String) async throws { guard let api else { throw RoomsError.expired }; try await api.addFriend(handle: handle) }
     func removeFriend(_ id: String) async throws { guard let api else { throw RoomsError.expired }; try await api.removeFriend(id: id) }
     func unblock(_ id: String) async throws { guard let api else { throw RoomsError.expired }; try await api.unblock(id: id) }
-    /// Invitation text for friends, with the same `rooms://invite` link desktop copies.
-    func createInvite(channelID: String) async throws -> (code: String, link: String) {
+    /// The same https `/davet/` link desktop copies: it opens a page that downloads Tayfa and
+    /// joins with the invitation. Older non-token codes keep the `rooms://invite` app link.
+    func createInvite(channelID: String) async throws -> (code: String, link: String, expiresAt: Date?) {
         guard let api else { throw RoomsError.expired }
         let invite = try await api.createInvite(channel: channelID)
+        let origin = await api.origin
+        let expires = invite.expiresAt.flatMap { value -> Date? in
+            let precise = ISO8601DateFormatter(); precise.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return precise.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        }
+        if invite.code.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+           var page = URLComponents(url: origin, resolvingAgainstBaseURL: false) {
+            page.path = "/davet/\(invite.code)"; page.query = nil; page.fragment = nil
+            if let link = page.url?.absoluteString { return (invite.code, link, expires) }
+        }
         var parts = URLComponents(); parts.scheme = "rooms"; parts.host = "invite"
-        parts.queryItems = [URLQueryItem(name: "server", value: await api.origin.absoluteString), URLQueryItem(name: "code", value: invite.code)]
-        return (invite.code, parts.url?.absoluteString ?? "")
+        parts.queryItems = [URLQueryItem(name: "server", value: origin.absoluteString), URLQueryItem(name: "code", value: invite.code)]
+        return (invite.code, parts.url?.absoluteString ?? "", expires)
     }
     /// The shared activity of a voice room the person is in (Birlikte izle).
     func watchTogether(roomID: String) -> WatchTogetherModel? {
