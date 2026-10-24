@@ -126,7 +126,8 @@ private struct BatakBoard: View {
     // MARK: Felt
 
     private func felt(width: CGFloat) -> some View {
-        let side = max(150, min(240, width - 2 * 84))
+        // Inside the felt's 10 pt padding: two 80 pt side seats plus 4 pt gaps.
+        let side = max(150, min(240, width - 20 - 2 * 84))
         let threeHanded = players == 3
         return VStack(spacing: 6) {
             HStack(alignment: .top) {
@@ -188,6 +189,11 @@ private struct BatakBoard: View {
                         .scaleEffect(phase == .sweeping ? 0.55 : 1)
                         .opacity(phase == .sweeping ? 0 : 1)
                         .zIndex(10 + Double(order))
+                }
+            } else if tracker.completionPending(round), let last = round.completedTricks.last {
+                // The render before `observe`: keep the finished trick where it lies.
+                ForEach(Array(last.plays.enumerated()), id: \.element.card.id) { order, play in
+                    GameCardView(card: play.card, width: cardWidth).offset(offset(for: play.seat, distance: distance)).zIndex(10 + Double(order))
                 }
             } else if showLast, round.trick.isEmpty, let last = round.completedTricks.last {
                 ForEach(last.plays, id: \.card.id) { play in

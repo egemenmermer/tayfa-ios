@@ -326,6 +326,9 @@ public struct BatakTrickTracker: Equatable, Sendable {
         if now < held.sweepAt { return held.sweepAt }
         return now < end ? end : nil
     }
+    /// The view already shows a trick completed that `observe` has not seen yet (the render before `onChange`):
+    /// draw `completedTricks.last` in place so the last card never blinks.
+    public func completionPending(_ round: BatakRound) -> Bool { baseline && round.completedTricks.count > done }
     /// Drops a trick whose sweep is over.
     public mutating func expire(at now: Date) { if phase(at: now) == nil { held = nil } }
 }
