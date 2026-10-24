@@ -359,7 +359,7 @@ public struct HoldemHandView: Codable, Equatable, Sendable {
     /// Allowed `raise(to:)` totals for this street: a full raise up to all-in, or only all-in when the stack is short.
     /// Nil when the stack cannot exceed the current bet. Whether raising is open at all comes from `legalActions`.
     public func raiseRange(_ userID: String?) -> ClosedRange<Int>? {
-        guard let own = player(userID), !own.folded else { return nil }
+        guard !ended, let own = player(userID), !own.folded else { return nil }
         let allIn = own.streetBet + own.chips
         guard allIn > maximumBet else { return nil }
         return min(maximumBet + minimumRaise, allIn)...allIn
