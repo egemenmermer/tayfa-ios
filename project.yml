@@ -50,8 +50,8 @@ targets:
         ROOMSAPIOrigin: $(ROOMS_API_ORIGIN)
         NSCameraUsageDescription: Tayfa, kameranı yalnızca sesli odada kamerayı açtığında kullanır.
         NSMicrophoneUsageDescription: Tayfa, mikrofonu yalnızca sesli odada konuşmayı açtığında kullanır.
-        UIBackgroundModes: [audio]
-        UILaunchScreen: {}
+        UIBackgroundModes: [audio, voip]
+        UILaunchScreen: {UIColorName: LaunchBackground}  # matches Palette.canvas
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         ITSAppUsesNonExemptEncryption: false
         UIUserInterfaceStyle: Dark

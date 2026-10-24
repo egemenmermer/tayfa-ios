@@ -39,10 +39,11 @@ struct HallArtView: View {
 struct HallBadges: View {
     let badges: [String]
     var max = 2
+    @ScaledMetric(relativeTo: .caption2) private var badgeSize: CGFloat = 9
     var body: some View {
         HStack(spacing: 3) {
             ForEach(Array(badges.prefix(max)), id: \.self) { badge in
-                Text(badge).font(.system(size: 9, weight: .bold)).padding(.horizontal, 4).padding(.vertical, 1)
+                Text(badge).font(.system(size: badgeSize, weight: .bold)).padding(.horizontal, 4).padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color.secondary.opacity(0.6))).foregroundStyle(.secondary)
             }
         }
@@ -272,13 +273,14 @@ private struct HallPosterRow: View {
 struct HallPoster: View {
     @ObservedObject var hall: HallModel
     let item: CinemaItem
+    @ScaledMetric(relativeTo: .caption2) private var badgeSize: CGFloat = 9
     var body: some View {
         Button { hall.details = HallDetailsRequest(ref: item.ref, kind: item.kind) } label: {
             VStack(alignment: .leading, spacing: 4) {
                 HallArtView(hall: hall, art: item.art, title: item.title, shape: .poster).aspectRatio(2 / 3, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: 10))
                     .overlay(alignment: .topLeading) {
                         if HallRecipes.isNew(addedAt: item.addedAt, now: Date().timeIntervalSince1970 * 1000) {
-                            Text("Yeni").font(.system(size: 9, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 2).background(Palette.accent, in: RoundedRectangle(cornerRadius: 4)).foregroundStyle(Palette.canvas).padding(6)
+                            Text("Yeni").font(.system(size: badgeSize, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 2).background(Palette.accent, in: RoundedRectangle(cornerRadius: 4)).foregroundStyle(Palette.canvas).padding(6)
                         }
                     }
                 Text(item.title).font(.caption.weight(.semibold)).lineLimit(2).foregroundStyle(.primary)
@@ -345,6 +347,7 @@ struct HallDetailsView: View {
     let request: HallDetailsRequest
     /// Called after something was opened or suggested, so the caller can close.
     var onDone: () -> Void = {}
+    @ScaledMetric(relativeTo: .caption2) private var badgeSize: CGFloat = 9
     @State private var ref: String?
     @State private var data: CinemaDetails?
     @State private var error: String?
@@ -452,7 +455,7 @@ struct HallDetailsView: View {
                     } label: {
                         HStack(alignment: .top, spacing: 10) {
                             HallArtView(hall: hall, art: episode.art, title: episode.title, shape: .wide).frame(width: 118, height: 66).clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay(alignment: .bottomLeading) { Text("S\(episode.season) B\(episode.episode)").font(.system(size: 9, weight: .bold)).padding(3).background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 4)).padding(4) }
+                                .overlay(alignment: .bottomLeading) { Text("S\(episode.season) B\(episode.episode)").font(.system(size: badgeSize, weight: .bold)).padding(3).background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 4)).padding(4) }
                                 .overlay { Image(systemName: playing ? "speaker.wave.2.fill" : hall.steers ? "play.fill" : "text.badge.plus").foregroundStyle(.white).shadow(radius: 3) }
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("\(episode.episode). \(episode.title)").font(.footnote.weight(.semibold)).lineLimit(2).foregroundStyle(.primary)
@@ -506,8 +509,10 @@ struct HallYouTubeTab: View {
         let all = hall.room?.queue ?? [], currentIndex = all.firstIndex { $0.id == hall.current?.id }
         let queue = all.filter { $0.media.kind == "youtube" && $0.media.videoId != nil }
         let playing = queue.first { $0.id == hall.current?.id }
-        let upcoming = queue.filter { item in item.id != playing?.id && (currentIndex.map { all.firstIndex(of: item)! > $0 } ?? true) }
-        let watched = queue.filter { item in currentIndex.map { all.firstIndex(of: item)! < $0 } ?? false }
+        // One pass over the whole queue instead of a `firstIndex(of:)` scan per item.
+        let positions = Dictionary(all.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let upcoming = queue.filter { item in item.id != playing?.id && (currentIndex.map { (positions[item.id] ?? 0) > $0 } ?? true) }
+        let watched = queue.filter { item in currentIndex.map { (positions[item.id] ?? 0) < $0 } ?? false }
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
