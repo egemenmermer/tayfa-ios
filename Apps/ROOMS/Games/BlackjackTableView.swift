@@ -458,7 +458,7 @@ private struct BlackjackFlipFace: View, Animatable {
     var angle: Double
     let card: PlayingCard?
     let width: CGFloat
-    var animatableData: Double {
+    nonisolated var animatableData: Double {
         get { angle }
         set { angle = newValue }
     }
