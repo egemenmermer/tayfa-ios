@@ -77,15 +77,14 @@ private struct Okey101Table: View {
         let controls = Okey101Controls(game: game, me: me, busy: context.busy)
         let tiles = game.myOkeyTiles(me)
         GeometryReader { proxy in
-            let tileWidth = min(44, max(22, (proxy.size.width - 170) / CGFloat(Okey101Rack.columns) - 3))
+            // Fit 15 cells beside the action column, and keep about 45% of the height for the rack.
+            let byWidth = (proxy.size.width - 190) / CGFloat(Okey101Rack.columns) - 3
+            let byHeight = (proxy.size.height * 0.45 - 52) / 2 / 1.45
+            let tileWidth = min(44, max(22, min(byWidth, byHeight)))
             VStack(spacing: 6) {
                 HStack(alignment: .center, spacing: 8) {
                     opponent(.left, info: info, vertical: true)
-                    VStack(spacing: 4) {
-                        opponent(.top, info: info, vertical: false)
-                        felt(info: info, controls: controls, tiles: tiles)
-                        moveLog
-                    }
+                    felt(info: info, controls: controls, tiles: tiles)
                     opponent(.right, info: info, vertical: true)
                 }
                 .frame(maxHeight: .infinity)
@@ -144,7 +143,7 @@ private struct Okey101Table: View {
         let stack = vertical ? AnyLayout(VStackLayout(spacing: 3)) : AnyLayout(HStackLayout(spacing: 8))
         stack {
             if let seat = game.seat(atPosition: position) {
-                GameSeatBadge(seat: seat, game: game, chat: context.chat, me: me, size: 32)
+                GameSeatBadge(seat: seat, game: game, chat: context.chat, me: me, size: vertical ? 32 : 24)
             } else {
                 Image(systemName: "person.crop.circle.dashed").font(.title2).foregroundStyle(.secondary)
             }
@@ -167,11 +166,15 @@ private struct Okey101Table: View {
         ZStack {
             RoundedRectangle(cornerRadius: 18).fill(Color(red: 0.08, green: 0.36, blue: 0.24))
             RoundedRectangle(cornerRadius: 18).strokeBorder(Color(red: 0.42, green: 0.27, blue: 0.13), lineWidth: 5)
-            HStack(spacing: 10) {
-                centerPile(info: info, controls: controls)
-                meldArea(controls: controls, tiles: tiles)
+            VStack(spacing: 2) {
+                opponent(.top, info: info, vertical: false)
+                HStack(spacing: 10) {
+                    centerPile(info: info, controls: controls)
+                    meldArea(controls: controls, tiles: tiles)
+                }
+                moveLog
             }
-            .padding(.horizontal, 74).padding(.vertical, 8)
+            .padding(.horizontal, 66).padding(.vertical, 4)
             pile(.top, controls: controls).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             pile(.right, controls: controls).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             pile(.left, controls: controls).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -219,21 +222,21 @@ private struct Okey101Table: View {
             Text(mine ? "Attığın" : "\(name(position)) attı").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
             if let top {
                 Button { if takeable { takeSide(top) } } label: {
-                    GameTileView(tile: top, width: 30)
+                    GameTileView(tile: top, width: 26)
                         .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(takeable ? Color.yellow : last ? Color.white.opacity(0.8) : Color.clear, lineWidth: 2))
-                        .frame(minWidth: 44, minHeight: 46)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain).disabled(!takeable)
                 .accessibilityLabel("\(mine ? "Attığın" : name(position) + " attı"): \(top.okey101Label)")
                 .accessibilityHint(takeable ? "Bu taşı al; bu el kullanmalısın" : "")
             } else {
                 RoundedRectangle(cornerRadius: 5).strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [3]))
-                    .frame(width: 30, height: 43)
+                    .frame(width: 26, height: 38)
                     .overlay(Text(mine && controls.discard ? "At" : "—").font(.caption2).foregroundStyle(.white.opacity(0.6)))
             }
             if takeable { Text("Al").font(.system(size: 9, weight: .bold)).foregroundStyle(.yellow) }
         }
-        .padding(6)
+        .padding(4)
         .dropDestination(for: String.self) { items, _ in
             guard mine, controls.discard, let id = items.first, game.myOkeyTiles(me).contains(where: { $0.id == id }), !draftIDs.contains(id) else { return false }
             discard(id); return true
@@ -307,10 +310,10 @@ private struct Okey101Table: View {
         if !log.isEmpty {
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(log.prefix(2).enumerated()), id: \.offset) { index, line in
-                    Text(line).font(.caption2).foregroundStyle(index == 0 ? Color.primary : Color.secondary).lineLimit(1)
+                    Text(line).font(.caption2).foregroundStyle(.white.opacity(index == 0 ? 0.95 : 0.65)).lineLimit(1)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Son hamleler: \(log.prefix(2).joined(separator: ". "))")
         }
