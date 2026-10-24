@@ -15,9 +15,9 @@ struct PistiTableView: View {
             PistiBoard(context: context, view: view).id(context.game.history.count)
         } else {
             ContentUnavailableView {
-                Label("Kartlar dağıtılıyor", systemImage: "suit.diamond.fill")
+                Label(context.game.table.spectatorAccess ? "Kartlar dağıtılıyor" : "Masa gizli", systemImage: "suit.diamond.fill")
             } description: {
-                Text("Masa kurulunca kartlar burada görünür.")
+                Text(context.game.table.spectatorAccess ? "Masa kurulunca kartlar burada görünür." : "Masayı görmek için izleyici olarak katıl ya da boş bir koltuğa otur.")
             }
         }
     }
@@ -47,14 +47,20 @@ private struct PistiBoard: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let content = VStack(spacing: 10) {
-                PistiMatchBar(context: context, view: view, series: series, finished: finished,
-                              onPrevious: previousDeal == nil ? nil : { summaryOpen.toggle() })
-                felt(width: proxy.size.width)
-                if finished { PistiMatchEnd(context: context, view: view, series: series) } else { handArea(width: proxy.size.width) }
+            // The felt scrolls (small phones, large Dynamic Type, spectator seat picker above); the hand stays pinned below it.
+            VStack(spacing: 8) {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        PistiMatchBar(context: context, view: view, series: series, finished: finished,
+                                      onPrevious: previousDeal == nil ? nil : { summaryOpen.toggle() })
+                        felt(width: proxy.size.width)
+                        if finished { PistiMatchEnd(context: context, view: view, series: series) }
+                    }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                if !finished { handArea(width: proxy.size.width) }
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
-            if context.compactChrome { ScrollView { content } } else { content }
         }
         .overlay { if summaryOpen, let previous = previousDeal { summaryPanel(previous) } }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: summaryOpen)
@@ -92,7 +98,7 @@ private struct PistiBoard: View {
     // MARK: Felt
 
     private func felt(width: CGFloat) -> some View {
-        let cardWidth = min(84, max(56, (width - 24 - 40) / 5))
+        let cardWidth = min(72, max(52, (width - 24 - 40) / 5))
         let away = (view.homeSide + 1) % view.sideCount
         let line = PistiNarration.lastLine(view, game: game, me: context.me)
         return VStack(spacing: 8) {
@@ -131,7 +137,7 @@ private struct PistiBoard: View {
 
     private func handArea(width: CGFloat) -> some View {
         let cards = view.handCards(canPlay: context.can("play"))
-        let cardWidth = min(88, max(56, (width - 24 - 3 * 10) / 4))
+        let cardWidth = min(80, max(56, (width - 24 - 3 * 10) / 4))
         return VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Text(turnLine).font(.subheadline.weight(.bold)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
@@ -460,8 +466,7 @@ private struct PistiMatchEnd: View {
         let winners = standings.filter(\.winner)
         let rows = series?.rounds ?? []
         let last = view.result?.points ?? rows.last?.points ?? []
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
                 Text(title(winners)).font(.headline)
                     .foregroundStyle(winners.contains { $0.own } ? Palette.accent : Color.primary)
                 if !last.isEmpty {
@@ -493,8 +498,6 @@ private struct PistiMatchEnd: View {
             }
             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.surface, in: RoundedRectangle(cornerRadius: 16))
-        }
-        .frame(maxHeight: 320)
     }
 
     private func title(_ winners: [PistiStanding]) -> String {
