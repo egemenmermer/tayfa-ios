@@ -272,7 +272,7 @@ struct Notice: View {
     /// Asks once; signs in when the account was created.
     func check(model: RoomsModel) async {
         guard let broker, !checking else { return }
-        checking = true; defer { checking = false }
+        checking = true; error = nil; defer { checking = false }
         await apply(await broker.check(), model: model)
         failures = pending?.error != nil && pending?.ready == false ? failures + 1 : 0
     }
@@ -337,7 +337,7 @@ private struct SignupFormView: View {
     private var validEmail: String? { SignupInput.email(email) }
     private var validName: String? { SignupInput.username(username) }
     private var ready: Bool {
-        !busy && validEmail != nil && validName != nil && SignupInput.password(password) && (hasInvite || available == true)
+        !busy && validEmail != nil && validName != nil && SignupInput.password(password) && (hasInvite || available == true || availabilityError != nil)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -382,7 +382,8 @@ private struct SignupFormView: View {
         guard let origin = SignInFlow.origin else { availabilityError = RoomsError.invalidEndpoint.localizedDescription; return }
         do { available = try await APIClient(origin: origin).signupAvailable(); availabilityError = nil }
         catch is CancellationError {}
-        catch { availabilityError = "Sunucu kontrol edilemedi. Davet bağlantın varsa yine de kayıt olabilirsin." }
+        // The request itself answers with the real reason; a failed check does not block it.
+        catch { availabilityError = "Sunucu şu anda kontrol edilemedi. Yine de istek gönderebilir ya da davet bağlantını yapıştırabilirsin." }
     }
     private func submit() async {
         guard ready, let email = validEmail, let name = validName else { return }
