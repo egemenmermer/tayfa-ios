@@ -807,7 +807,8 @@ public struct BlackjackTableOptions: Equatable, Sendable {
     public var surrender: Bool
     public init(insurance: Bool = true, surrender: Bool = false) { self.insurance = insurance; self.surrender = surrender }
     public static let standard = BlackjackTableOptions()
-    public var options: GameOptions { ["insurance": .bool(insurance), "surrender": .bool(surrender)] }
+    /// The service defaults send nothing, so a default table also opens on a service without `game.create.options`.
+    public var options: GameOptions { self == .standard ? [:] : ["insurance": .bool(insurance), "surrender": .bool(surrender)] }
 }
 /// Batak house rules (`BatakRules`); the scoring switches do not apply to Koz Maça.
 public struct BatakHouseRules: Equatable, Sendable {
@@ -821,8 +822,10 @@ public struct BatakHouseRules: Equatable, Sendable {
         self.noTrumpLeadUntilBroken = noTrumpLeadUntilBroken; self.defenderBatakPenalty = defenderBatakPenalty; self.writeContract = writeContract
     }
     public static let standard = BatakHouseRules()
+    /// The service defaults send nothing (as for Blackjack).
     public var options: GameOptions {
-        ["noTrumpLeadUntilBroken": .bool(noTrumpLeadUntilBroken), "defenderBatakPenalty": .bool(defenderBatakPenalty), "writeContract": .bool(writeContract)]
+        self == .standard ? [:]
+            : ["noTrumpLeadUntilBroken": .bool(noTrumpLeadUntilBroken), "defenderBatakPenalty": .bool(defenderBatakPenalty), "writeContract": .bool(writeContract)]
     }
 }
 /// Pişti match: `target` 101, 151 (default) or 251; an opening jack on top goes back into the deck by default.

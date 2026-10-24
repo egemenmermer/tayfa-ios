@@ -259,10 +259,9 @@ final class GamesTests: XCTestCase {
     private func object(_ pairs: [String: JSONValue]) -> JSONValue { .object(pairs) }
 
     func testTableCommandsMatchTheStrictSchema() {
-        XCTAssertEqual(command(.create(.blackjack())), object(["type": .string("game.create"), "game": .string("blackjack"),
-                                                              "options": object(["insurance": .bool(true), "surrender": .bool(false)])]))
-        XCTAssertEqual(command(.create(.batak(.kozMaca))), object(["type": .string("game.create"), "game": .string("batak"), "variant": .string("koz-maca"),
-                                                                    "options": object(["noTrumpLeadUntilBroken": .bool(true), "defenderBatakPenalty": .bool(false), "writeContract": .bool(false)])]))
+        // Default rules send no options (older services reject the key; the defaults are the same).
+        XCTAssertEqual(command(.create(.blackjack())), object(["type": .string("game.create"), "game": .string("blackjack")]))
+        XCTAssertEqual(command(.create(.batak(.kozMaca))), object(["type": .string("game.create"), "game": .string("batak"), "variant": .string("koz-maca")]))
         XCTAssertEqual(command(.create(.okey101(folding: true, teams: false))),
                        object(["type": .string("game.create"), "game": .string("101"), "folding": .bool(true), "teams": .bool(false)]))
         XCTAssertEqual(command(.create(.holdem(nil))), object(["type": .string("game.create"), "game": .string("holdem")]))

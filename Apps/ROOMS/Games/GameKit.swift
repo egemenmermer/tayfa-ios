@@ -20,6 +20,8 @@ struct GameTableContext {
     let serverOffsetMs: Double
     /// A command is in flight; disable moves meanwhile.
     let busy: Bool
+    /// Landscape phone: the host shows only a slim bar (no seat strip, no status line); draw the seats in the table.
+    let compactChrome: Bool
     /// Sends one table command; a refusal shows up as the host's error text.
     let send: @MainActor (GameCommand) -> Void
 

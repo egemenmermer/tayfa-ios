@@ -8,6 +8,10 @@ struct GameTableHost: View {
     @ObservedObject var watch: WatchTogetherModel
     let chat: ChatController
     @State private var confirmLeave = false
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.dismiss) private var dismiss
+    /// Landscape phone: one slim bar instead of header + footer, so racks and the board keep the height.
+    private var compact: Bool { verticalSizeClass == .compact }
 
     private var game: GameState? { watch.room?.game }
     private var me: String { watch.me }
@@ -17,12 +21,13 @@ struct GameTableHost: View {
     var body: some View {
         Group {
             if let game {
-                let context = GameTableContext(game: game, me: me, chat: chat, serverOffsetMs: watch.serverOffsetMs, busy: watch.busy) { command in watch.run(.game(command)) }
+                let context = GameTableContext(game: game, me: me, chat: chat, serverOffsetMs: watch.serverOffsetMs, busy: watch.busy,
+                                               compactChrome: compact) { command in watch.run(.game(command)) }
                 VStack(spacing: 0) {
-                    header(game)
+                    if compact { compactBar(game) } else { header(game) }
                     banners(game)
                     Self.table(context).frame(maxWidth: .infinity, maxHeight: .infinity)
-                    footer(game)
+                    if !compact { footer(game) }
                 }
                 .onChange(of: game.isMyTurn(me)) { _, mine in if mine { GameHaptics.yourTurn(); GameSounds.play(.turn) } }
                 .onChange(of: watch.failure) { _, failure in if failure != nil { GameHaptics.refused() } }
@@ -35,6 +40,7 @@ struct GameTableHost: View {
         .background(Palette.rail.ignoresSafeArea())
         .navigationTitle(game.map { $0.table.tableName ?? $0.kind.title } ?? "Masa")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(compact && game != nil ? .hidden : .visible, for: .navigationBar)
         .confirmationDialog("Masadan kalkılsın mı?", isPresented: $confirmLeave, titleVisibility: .visible) {
             Button("Masadan kalk", role: .destructive) { watch.run(.game(.leave)) }
         } message: {
@@ -78,6 +84,31 @@ struct GameTableHost: View {
         }
         .padding(.horizontal, 14).padding(.vertical, 8).background(Palette.surface)
     }
+    /// Landscape: back, game, turn clock, leave and deal in one row; per-game views draw the seats (`compactChrome`).
+    private func compactBar(_ game: GameState) -> some View {
+        let seated = game.seat(of: me) != nil
+        return HStack(spacing: 10) {
+            Button { dismiss() } label: { Image(systemName: "chevron.left").frame(width: 36, height: 36) }.accessibilityLabel("Oyunlara dön")
+            Text(game.kind.title).font(.subheadline.bold()).lineLimit(1)
+            Text(statusLine(game)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            Spacer(minLength: 0)
+            GameTurnClock(game: game, serverOffsetMs: watch.serverOffsetMs)
+            if game.canDeal {
+                Button(dealTitle(game)) { GameHaptics.tap(); watch.run(.game(.action(.start))) }
+                    .buttonStyle(.borderedProminent).foregroundStyle(Palette.canvas).font(.footnote.bold())
+            }
+            if seated {
+                Button { confirmLeave = true } label: { Image(systemName: "rectangle.portrait.and.arrow.right").frame(width: 36, height: 36) }
+                    .accessibilityLabel("Masadan kalk")
+            } else if game.table.watching {
+                Button("İzlemeyi bırak") { watch.run(.game(.watch(false))) }.font(.footnote)
+            } else if game.table.capacity != nil {
+                Button("İzle") { watch.run(.game(.watch(true))) }.font(.footnote)
+            }
+        }
+        .disabled(watch.busy)
+        .padding(.horizontal, 12).padding(.vertical, 4).background(Palette.surface)
+    }
     private func statusLine(_ game: GameState) -> String {
         if let series = game.table.series, series.finished { return "Maç bitti" }
         switch game.status {
@@ -114,11 +145,11 @@ struct GameTableHost: View {
                     Notice(text: "Eli görmek için izleyici olarak katıl ya da boş bir koltuğa otur.")
                 }
             }
-            if game.status != .playing || game.seat(of: me) == nil, game.table.capacity != nil {
+            if game.status != .playing || (!compact && game.seat(of: me) == nil), game.table.capacity != nil {
                 GameSeatPicker(watch: watch, chat: chat, game: game, roomHost: roomHost)
             }
         }
-        .padding(.horizontal, 14).padding(.top, 8)
+        .padding(.horizontal, 14).padding(.top, compact ? 4 : 8)
     }
 
     // MARK: Footer
