@@ -296,7 +296,7 @@ private struct ChatVoiceBar: View {
                     HStack { Image(systemName: "headphones"); Text(room.name).lineLimit(1); Spacer(); Text(model.busy ? "Bağlanıyor…" : media.status).font(.caption).lineLimit(1) }
                 }.accessibilityLabel("\(room.name) sesli odasına dön")
                 HStack(spacing: 10) {
-                    control(media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.connected || media.microphoneBusy)
+                    control(media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.canToggleMicrophone)
                     control(media.hearingMuted ? "Oda sesini aç" : "Oda sesini kapat", icon: media.hearingMuted ? "headphones.slash" : "headphones", selected: !media.hearingMuted) { media.toggleHearing() }.disabled(!media.connected)
                     if media.selectedStream?.hasAudio == true {
                         control(media.screenMuted ? "Yayın sesini aç" : "Yayın sesini kapat", icon: media.screenMuted ? "speaker.slash" : "speaker.wave.2", selected: !media.screenMuted) { media.setScreenAudio(muted: !media.screenMuted) }

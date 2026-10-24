@@ -85,7 +85,7 @@ struct DMCallScreen: View {
                 HStack(spacing: 9) {
                     if calls.connected {
                         RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }
-                            .disabled(!media.connected || media.microphoneBusy || media.audioInterrupted || media.audioNeedsResume)
+                            .disabled(!media.canToggleMicrophone)
                         RoomIconControl(label: media.hearingMuted ? "Sesi aç" : "Sesi kapat", icon: media.hearingMuted ? "headphones.slash" : "headphones", selected: !media.hearingMuted) { media.toggleHearing() }.disabled(!media.connected)
                         RoomIconControl(label: media.camera.isOn ? "Kamerayı kapat" : "Kamerayı aç", icon: media.camera.isOn ? "video.fill" : "video.slash", selected: media.camera.isOn) { Task { await media.toggleCamera() } }
                             .disabled(!media.connected || media.camera.busy || media.audioInterrupted)
@@ -135,7 +135,7 @@ struct DMCallDock: View {
                 }.buttonStyle(.plain).accessibilityLabel("\(peer.name) ile görüşmeyi aç")
                 if calls.connected {
                     RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }
-                        .disabled(!media.connected || media.microphoneBusy || media.audioInterrupted || media.audioNeedsResume)
+                        .disabled(!media.canToggleMicrophone)
                 }
                 RoomIconControl(label: call.ringing && calls.incoming ? "Reddet" : "Görüşmeyi bitir", icon: "phone.down.fill", destructive: true) { Task { await calls.end(call.ringing && calls.incoming ? .reject : .end) } }
             }.padding(.leading, 10).padding(.trailing, 8).padding(.vertical, 6).background(Palette.raised, in: RoundedRectangle(cornerRadius: 15))
