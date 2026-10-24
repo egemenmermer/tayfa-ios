@@ -28,6 +28,7 @@
 		73CBA89DADF81EC89CB697D3 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 34877FCDDAF3D52923FB671C /* LiveKit */; };
 		7649DAF19AE5A5F66CA49568 /* RoomsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC8DCE62E83593F4DCF52CF /* RoomsApp.swift */; };
 		98A9392373CEC2F4F7BC2BD8 /* RoomsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87042FB0DF7045611CF84C34 /* RoomsModel.swift */; };
+		A7E2C41B9D3F5068B1C2D3E4 /* RestoreRetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F3D52CAE4061790C2D3E4F /* RestoreRetryView.swift */; };
 		992BD1E97521CB5A4A2793D5 /* HallPlayerSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059C04F84522F9D1B2A0D3F0 /* HallPlayerSurface.swift */; };
 		A21E6365AEA099AC4BB37453 /* HallModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B586C40071447D46261C72 /* HallModel.swift */; };
 		AA416EC78D4B6C0C75BAA36D /* DMCallWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB4AA902EC4C58D7D5001B32 /* DMCallWindow.swift */; };
@@ -89,6 +90,7 @@
 		69FE7B6A6E34866102DDA495 /* CinemaRelayLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CinemaRelayLoader.swift; sourceTree = "<group>"; };
 		74B586C40071447D46261C72 /* HallModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HallModel.swift; sourceTree = "<group>"; };
 		87042FB0DF7045611CF84C34 /* RoomsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomsModel.swift; sourceTree = "<group>"; };
+		B8F3D52CAE4061790C2D3E4F /* RestoreRetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreRetryView.swift; sourceTree = "<group>"; };
 		8857278D8C5A1E5B5197A79C /* ROOMS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ROOMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8CA97836AD572B9C0CD1F276 /* ROOMSBroadcast.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ROOMSBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		980C75121CA540DB7D26CF4C /* FullScreenStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenStreamView.swift; sourceTree = "<group>"; };
@@ -174,6 +176,7 @@
 				16B451DF8AAE9DB8111597DF /* ROOMS.entitlements */,
 				AFC8DCE62E83593F4DCF52CF /* RoomsApp.swift */,
 				87042FB0DF7045611CF84C34 /* RoomsModel.swift */,
+				B8F3D52CAE4061790C2D3E4F /* RestoreRetryView.swift */,
 				B280EAD36B0ED51F2CB51944 /* SessionVault.swift */,
 				F9CF54999AE2ABCE4ACC1DBC /* VoiceRoomViews.swift */,
 				DC61F9BCAC4026776CBB4A70 /* WatchTogether.swift */,
@@ -406,6 +409,7 @@
 				6DD76E75A4D8A8914845CB61 /* RoomMedia.swift in Sources */,
 				7649DAF19AE5A5F66CA49568 /* RoomsApp.swift in Sources */,
 				98A9392373CEC2F4F7BC2BD8 /* RoomsModel.swift in Sources */,
+				A7E2C41B9D3F5068B1C2D3E4 /* RestoreRetryView.swift in Sources */,
 				E4C6EF50334AF380C7B259BB /* SessionVault.swift in Sources */,
 				69B9DEAB5329C797BE4C729B /* VoiceModerationSection.swift in Sources */,
 				ED96038D2D6E51AF2B44F394 /* VoiceRoomViews.swift in Sources */,
