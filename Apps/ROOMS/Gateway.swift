@@ -10,6 +10,9 @@ import RoomsCore
     private var heartbeat: Task<Void, Never>?
     private var deadline: Task<Void, Never>?
     private var ready = false
+    /// True once the server sent `Ready` on the current socket.
+    var isReady: Bool { ready }
+    private var credentials: (api: APIClient, token: String)?
     func typing(channelID: String, active: Bool) async -> Bool {
         guard ready, let socket, (try? EndpointPolicy.id(channelID)) != nil else { return false }
         do { try await send(.object(["type": .string(active ? "BeginTyping" : "EndTyping"), "channel": .string(channelID)]), to: socket); return true }
@@ -18,11 +21,12 @@ import RoomsCore
     private var lastPong = Date()
     private var epoch = OperationEpoch()
     func start(api: APIClient, token: String) {
-        stop(); let ticket = epoch.advance()
+        stop(); let ticket = epoch.advance(); credentials = (api, token)
         task = Task { [weak self] in
             guard let self else { return }
             var failures = 0
-            while !Task.isCancelled && self.epoch.owns(ticket) && failures < 5 {
+            // Never gives up while running (B6): the backoff is capped and only stop() ends the loop.
+            while !Task.isCancelled && self.epoch.owns(ticket) {
                 self.onStatus?(failures == 0 ? "Odalar yükleniyor…" : "Bağlantı kesildi. Yeniden deneniyor.")
                 do {
                     let url = try await api.gatewayURL()
@@ -66,9 +70,9 @@ import RoomsCore
                 self.ready = false; self.heartbeat?.cancel(); self.deadline?.cancel(); self.socket?.cancel(with: .goingAway, reason: nil)
                 guard !Task.isCancelled, self.epoch.owns(ticket) else { return }
                 failures += 1
-                do { try await Task.sleep(for: .seconds(min(pow(2, Double(failures - 1)), 7))) } catch { return }
+                let delay = ReconnectBackoff.delay(failures: failures, jitter: Double.random(in: 0...1))
+                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
             }
-            if self.epoch.owns(ticket) { self.onStatus?("Odalar yüklenemedi. Tekrar dene.") }
         }
     }
     private func send(_ value: JSONValue, to socket: URLSessionWebSocketTask) async throws {
@@ -76,5 +80,11 @@ import RoomsCore
         guard let string = String(data: data, encoding: .utf8) else { throw RoomsError.invalidResponse }
         try await socket.send(.string(string))
     }
-    func stop() { ready = false; epoch.advance(); task?.cancel(); task = nil; heartbeat?.cancel(); deadline?.cancel(); socket?.cancel(with: .normalClosure, reason: nil); socket = nil }
+    /// A network change: skip the remaining backoff and reconnect now. A live socket is left alone
+    /// unless `force` (the primary interface changed under it); a stopped gateway stays stopped.
+    func reconnectNow(force: Bool = false) {
+        guard task != nil, force || !ready, let credentials else { return }
+        start(api: credentials.api, token: credentials.token)
+    }
+    func stop() { credentials = nil; ready = false; epoch.advance(); task?.cancel(); task = nil; heartbeat?.cancel(); deadline?.cancel(); socket?.cancel(with: .normalClosure, reason: nil); socket = nil }
 }
