@@ -226,11 +226,11 @@ final class GamesTests: XCTestCase {
     func testUnknownGameKindDecodesWithoutAHand() throws {
         let state = try game(#"""
         {"kind":"tavla","ownerId":"ece","status":"rolling","seats":[{"seat":0,"userId":"ece","name":"Ece","bot":false,"chips":0,"connected":true}],
-         "turn":0,"view":{"board":[[2,0],[0,5]],"dice":[6,6],"legalActions":["roll"],"capacity":2,"newField":{"x":1}},"history":[]}
+         "turn":0,"view":{"board":[[2,0],[0,5]],"dice":[6,6],"legalActions":["spin"],"capacity":2,"newField":{"x":1}},"history":[]}
         """#)
         XCTAssertEqual(state.kind, .unknown("tavla")); XCTAssertFalse(state.kind.known); XCTAssertEqual(state.kind.title, "Oyun masası")
         XCTAssertEqual(state.status, .unknown("rolling")); XCTAssertNil(state.hand)
-        XCTAssertEqual(state.table.legalActions, ["roll"]); XCTAssertEqual(state.legalActions, []); XCTAssertEqual(state.freeSeats, [1])
+        XCTAssertEqual(state.table.legalActions, ["spin"]); XCTAssertEqual(state.legalActions, []); XCTAssertEqual(state.freeSeats, [1])
         XCTAssertEqual(state.view["dice"], .array([.number(6), .number(6)]))
     }
     func testNewFieldsAndAMalformedHandKeepTheTable() throws {
@@ -259,8 +259,10 @@ final class GamesTests: XCTestCase {
     private func object(_ pairs: [String: JSONValue]) -> JSONValue { .object(pairs) }
 
     func testTableCommandsMatchTheStrictSchema() {
-        XCTAssertEqual(command(.create(.blackjack)), object(["type": .string("game.create"), "game": .string("blackjack")]))
-        XCTAssertEqual(command(.create(.batak(.kozMaca))), object(["type": .string("game.create"), "game": .string("batak"), "variant": .string("koz-maca")]))
+        XCTAssertEqual(command(.create(.blackjack())), object(["type": .string("game.create"), "game": .string("blackjack"),
+                                                              "options": object(["insurance": .bool(true), "surrender": .bool(false)])]))
+        XCTAssertEqual(command(.create(.batak(.kozMaca))), object(["type": .string("game.create"), "game": .string("batak"), "variant": .string("koz-maca"),
+                                                                    "options": object(["noTrumpLeadUntilBroken": .bool(true), "defenderBatakPenalty": .bool(false), "writeContract": .bool(false)])]))
         XCTAssertEqual(command(.create(.okey101(folding: true, teams: false))),
                        object(["type": .string("game.create"), "game": .string("101"), "folding": .bool(true), "teams": .bool(false)]))
         XCTAssertEqual(command(.create(.holdem(nil))), object(["type": .string("game.create"), "game": .string("holdem")]))
@@ -275,7 +277,7 @@ final class GamesTests: XCTestCase {
         XCTAssertEqual(command(.configure(rules)), object(["type": .string("game.configure"), "holdem": rulesJSON]))
         XCTAssertEqual(command(.watch(true)), object(["type": .string("game.watch"), "watching": .bool(true)]))
         XCTAssertEqual(command(.sit(seat: 3)), object(["type": .string("game.sit"), "seat": .number(3)]))
-        XCTAssertEqual(command(.sit(seat: 12, buyIn: 500)), object(["type": .string("game.sit"), "seat": .number(8), "buyIn": .number(500)]))
+        XCTAssertEqual(command(.sit(seat: 12, buyIn: 500)), object(["type": .string("game.sit"), "seat": .number(11), "buyIn": .number(500)]))
         XCTAssertEqual(command(.addBot(seat: 2)), object(["type": .string("game.bot.add"), "seat": .number(2)]))
         XCTAssertEqual(command(.leave), object(["type": .string("game.leave")]))
         var bad = rules; bad.minBuyIn = 10
@@ -307,7 +309,7 @@ final class GamesTests: XCTestCase {
                        expect("process", ["amount": .number(0), "tileIds": .array([.string("red-12-1")]), "cardId": .string("blue-1-1")]))
         let many = (0..<40).map { "t\($0)" }
         XCTAssertEqual(action(.process(meld: 0, tileIDs: many))["tileIds"].array.count, 30)
-        XCTAssertEqual(GameAction.takeDiscard.kind, .draw); XCTAssertEqual(GameActionKind.allCases.count, 20)
+        XCTAssertEqual(GameAction.takeDiscard.kind, .draw); XCTAssertEqual(GameActionKind.allCases.count, 30)
     }
     func testGameCommandsTravelInTheActivityEnvelope() {
         let envelope = ActivityCommand.envelope(.game(.action(.call)), commandID: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, expectedRevision: 9)
@@ -325,6 +327,6 @@ private extension GameTableView {
     /// A view with only `legalActions` set (the rest at their defaults).
     init(from _: [Never], legal: [String]) {
         self.init(ownRecovery: nil, tableName: nil, rules: nil, spectators: [], watching: false, spectatorAccess: false,
-                  legalActions: legal, turnDeadline: nil, capacity: nil, statistics: [:])
+                  legalActions: legal, turnDeadline: nil, capacity: nil, statistics: [:], series: nil)
     }
 }

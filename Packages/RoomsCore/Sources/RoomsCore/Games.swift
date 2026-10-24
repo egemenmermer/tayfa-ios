@@ -17,16 +17,23 @@ private extension KeyedDecodingContainer {
 
 // MARK: - Kinds and states
 
-public enum GameKind: Hashable, Sendable, Codable {
+public enum GameKind: Hashable, Sendable, Codable, CaseIterable {
     case holdem, blackjack, batak, okey101
+    /// Registry games (`packages/games/src/registry.ts`); their views are read with `GameState.view(as:)`.
+    case pisti, okey, tavla
     /// A game this build does not know; shown as a table but not played.
     case unknown(String)
+    /// Every game this build knows, in the desktop catalog order (`apps/desktop/src/games/catalog.ts`).
+    public static let allCases: [GameKind] = [.holdem, .blackjack, .batak, .okey101, .pisti, .okey, .tavla]
     public init(rawValue: String) {
         switch rawValue {
         case "holdem": self = .holdem
         case "blackjack": self = .blackjack
         case "batak": self = .batak
         case "101": self = .okey101
+        case "rooms-pisti-v1": self = .pisti
+        case "rooms-okey-v1": self = .okey
+        case "rooms-tavla-v1": self = .tavla
         default: self = .unknown(rawValue)
         }
     }
@@ -36,6 +43,9 @@ public enum GameKind: Hashable, Sendable, Codable {
         case .blackjack: "blackjack"
         case .batak: "batak"
         case .okey101: "101"
+        case .pisti: "rooms-pisti-v1"
+        case .okey: "rooms-okey-v1"
+        case .tavla: "rooms-tavla-v1"
         case .unknown(let value): value
         }
     }
@@ -47,9 +57,63 @@ public enum GameKind: Hashable, Sendable, Codable {
         case .blackjack: "Blackjack"
         case .batak: "Batak"
         case .okey101: "101 Okey"
+        case .pisti: "Pişti"
+        case .okey: "Okey"
+        case .tavla: "Tavla"
         case .unknown: "Oyun masası"
         }
     }
+    /// The catalog's player count line.
+    public var playersLine: String {
+        switch self {
+        case .holdem: "2–9 oyuncu"
+        case .blackjack: "1–7 oyuncu"
+        case .batak: "3–4 oyuncu"
+        case .okey101, .okey: "4 oyuncu"
+        case .pisti: "2 veya 4 oyuncu"
+        case .tavla: "2 oyuncu"
+        case .unknown: ""
+        }
+    }
+    /// One catalog sentence (desktop `detail`).
+    public var detail: String {
+        switch self {
+        case .holdem: "Blind, flop ve showdown. Sanal fişle."
+        case .blackjack: "Krupiyeye karşı 21. Herkes kendi elini oynar."
+        case .batak: "İhaleli, eşli, koz maça ya da gömmeli."
+        case .okey101: "Tekli ya da eşli. Botlar boş yerleri doldurur."
+        case .pisti: "Yerdeki kartı aynı kartla ya da valeyle topla."
+        case .okey: "Klasik Okey: 14 taşı per ya da çift olarak diz."
+        case .tavla: "Zarı at, pullarını topla. Maç sayıya oynanır."
+        case .unknown: "Bu oyun bu sürümde oynanamıyor. Uygulamayı güncelle."
+        }
+    }
+    /// Seat counts the service accepts to start (module `seats`).
+    public var seatCounts: [Int] {
+        switch self {
+        case .holdem: Array(2...9)
+        case .blackjack: Array(1...7)
+        case .batak: [3, 4]
+        case .okey101, .okey: [4]
+        case .pisti: [2, 4]
+        case .tavla: [2]
+        case .unknown: []
+        }
+    }
+    /// Seats to draw when the server sends no capacity (desktop `fallbackCapacity`).
+    public var fallbackCapacity: Int {
+        switch self {
+        case .holdem: 9
+        case .blackjack: 7
+        case .batak, .okey101, .okey, .pisti: 4
+        case .tavla: 2
+        case .unknown: 0
+        }
+    }
+    /// Virtual chips (bets, buy-ins) rather than points.
+    public var usesChips: Bool { self == .holdem || self == .blackjack }
+    /// Tile racks and the board need the long edge of the phone.
+    public var prefersLandscape: Bool { self == .okey101 || self == .okey || self == .tavla }
     public init(from decoder: Decoder) throws { self.init(rawValue: try decoder.singleValueContainer().decode(String.self)) }
     public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(rawValue) }
 }
@@ -82,6 +146,14 @@ public enum GameActionKind: String, CaseIterable, Sendable {
     case bid, pass, bury, trump, play, draw, discard, open
     case openPairs = "open-pairs"
     case process
+    // Blackjack table rules (insurance/surrender switches) and 101's gösterge.
+    case surrender, insurance
+    case declineInsurance = "decline-insurance"
+    case gosterge
+    // Registry games: Okey (draw/discard above), Tavla; Pişti uses `play`.
+    case finish
+    case showIndicator = "show-indicator"
+    case roll, move, undo, confirm
 }
 
 // MARK: - Cards and tiles
@@ -226,6 +298,32 @@ public struct HoldemTableRules: Codable, Equatable, Sendable {
     }
 }
 
+/// A match played over several rounds (Pişti to a target, Tavla to `matchTo`): `view.series` from the service's `asMatch`.
+/// Every array here is indexed by the round's own seat index (Pişti: seat position, or side in a 4-player team game;
+/// Tavla: 0/1) — not by table seat numbers.
+public struct GameSeries: Codable, Equatable, Sendable {
+    public struct Round: Codable, Equatable, Sendable {
+        public let points: [Int]
+        public let winners: [Int]
+    }
+    /// Match points so far.
+    public let totals: [Int]
+    public let rounds: [Round]
+    /// Set once the match is over.
+    public let winners: [Int]?
+    /// The last finished round in that game's own view shape (decode it with the game's view type).
+    public let previous: JSONValue?
+    public var finished: Bool { winners != nil }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        totals = c.soft([Int].self, .totals) ?? []
+        rounds = c.soft([Round].self, .rounds) ?? []
+        winners = c.soft([Int].self, .winners)
+        let previous = c.soft(JSONValue.self, .previous)
+        self.previous = previous == .null ? nil : previous
+    }
+}
+
 /// The keys every game view carries, also in the lobby, before the first hand and for viewers without access.
 public struct GameTableView: Codable, Equatable, Sendable {
     public let ownRecovery: GameRecovery?
@@ -244,12 +342,15 @@ public struct GameTableView: Codable, Equatable, Sendable {
     public let capacity: Int?
     /// User id → hands, wins and total score at this table.
     public let statistics: [String: GameStatistics]
+    /// Pişti/Tavla matches (`view.series`); nil for single-hand games.
+    public let series: GameSeries?
     public static let empty = GameTableView(ownRecovery: nil, tableName: nil, rules: nil, spectators: [], watching: false, spectatorAccess: false,
-                                            legalActions: [], turnDeadline: nil, capacity: nil, statistics: [:])
+                                            legalActions: [], turnDeadline: nil, capacity: nil, statistics: [:], series: nil)
     init(ownRecovery: GameRecovery?, tableName: String?, rules: HoldemTableRules?, spectators: [GameSpectator], watching: Bool, spectatorAccess: Bool,
-         legalActions: [String], turnDeadline: Double?, capacity: Int?, statistics: [String: GameStatistics]) {
+         legalActions: [String], turnDeadline: Double?, capacity: Int?, statistics: [String: GameStatistics], series: GameSeries?) {
         self.ownRecovery = ownRecovery; self.tableName = tableName; self.rules = rules; self.spectators = spectators; self.watching = watching
         self.spectatorAccess = spectatorAccess; self.legalActions = legalActions; self.turnDeadline = turnDeadline; self.capacity = capacity; self.statistics = statistics
+        self.series = series
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -263,6 +364,7 @@ public struct GameTableView: Codable, Equatable, Sendable {
         turnDeadline = c.soft(Double.self, .turnDeadline)
         capacity = c.soft(Int.self, .capacity)
         statistics = c.soft([String: GameStatistics].self, .statistics) ?? [:]
+        series = c.soft(GameSeries.self, .series)
     }
 }
 
@@ -561,7 +663,8 @@ public struct Okey101HandView: Codable, Equatable, Sendable {
 // MARK: - Public state
 
 /// The hand in progress or just finished, typed by game; nil in the lobby, before the first hand, without access,
-/// or for a game kind this build does not know.
+/// or for a game kind this build does not know. Registry games (Pişti, Okey, Tavla) have no case here: their
+/// per-game files read the view with `GameState.view(as:)`, so adding one never touches this file.
 public enum GameHand: Equatable, Sendable {
     case holdem(HoldemHandView)
     case blackjack(BlackjackHandView)
@@ -573,7 +676,7 @@ public enum GameHand: Equatable, Sendable {
         case .blackjack: (try? BlackjackHandView(from: decoder)).map(GameHand.blackjack)
         case .batak: (try? BatakHandView(from: decoder)).map(GameHand.batak)
         case .okey101: (try? Okey101HandView(from: decoder)).map(GameHand.okey101)
-        case .unknown: nil
+        case .pisti, .okey, .tavla, .unknown: nil
         }
     }
 }
@@ -633,15 +736,33 @@ public struct GameState: Codable, Equatable, Sendable {
         let ordered = orderedSeats
         return ordered.indices.contains(position) ? ordered[position] : nil
     }
-    /// Seat numbers nobody holds (capacity from the view; Hold'em 2–9, Blackjack 7, Batak 3–4, 101 4).
+    /// Seats the table has: the view's capacity, else the game's fallback (older servers).
+    public var capacity: Int { min(GameCommand.maxSeats, max(0, table.capacity ?? kind.fallbackCapacity)) }
+    /// Seat numbers nobody holds (Hold'em 2–9, Blackjack 7, Batak 3–4, 101/Okey 4, Pişti 2/4, Tavla 2).
     public var freeSeats: [Int] {
-        guard let capacity = table.capacity else { return [] }
+        guard table.capacity != nil else { return [] }
         let taken = Set(seats.map(\.seat))
-        return (0..<min(9, max(0, capacity))).filter { !taken.contains($0) }
+        return (0..<capacity).filter { !taken.contains($0) }
     }
     /// The server's legal actions for the viewer, in its order; unknown names are dropped.
     public var legalActions: [GameActionKind] { table.legalActions.compactMap(GameActionKind.init(rawValue:)) }
     public func can(_ action: GameActionKind) -> Bool { table.legalActions.contains(action.rawValue) }
+    /// Any action name, including registry-game names this build has no `GameActionKind` for.
+    public func can(_ name: String) -> Bool { table.legalActions.contains(name) }
+    /// "Yeni el" / "Rövanş": the server offers `start` between hands to whoever may deal.
+    public var canDeal: Bool { status != .playing && can(.start) }
+    /// The table owner or the room host may free a bot's seat or an away player's seat, never their own
+    /// (desktop `SeatControlsContext`). The service makes the final call (`SEAT_REMOVE_NOT_ALLOWED`).
+    public func canRemove(_ seat: GameSeat, viewer: String?, roomHost: Bool) -> Bool {
+        guard let viewer, seat.userId != viewer, isOwner(viewer) || roomHost else { return false }
+        return seat.bot || seat.isBotSeat || !seat.connected
+    }
+    /// Re-reads the view as a game's own type (registry games: Pişti, Okey, Tavla, and any later one).
+    /// Nil when the view does not match; a broken view never fails the table.
+    public func view<T: Decodable>(as type: T.Type) -> T? {
+        guard case .object = view, let data = try? JSONEncoder().encode(view) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
     /// Seconds until the turn timer runs out, using the same server offset as watch-together.
     public func turnSecondsLeft(nowMs: Double, serverOffsetMs: Double) -> Double? {
         guard status == .playing, turn != nil, let deadline = table.turnDeadline, deadline > 0 else { return nil }
@@ -656,20 +777,120 @@ public struct GameState: Codable, Equatable, Sendable {
 
 // MARK: - Commands
 
+/// A flat `game.create.options` value (the protocol allows a string up to 64 characters, a finite number or a bool).
+public enum GameOptionValue: Equatable, Sendable {
+    case string(String), number(Double), bool(Bool)
+    var json: JSONValue? {
+        switch self {
+        case .string(let value): .string(String(value.prefix(64)))
+        case .number(let value): value.isFinite ? .number(value) : nil
+        case .bool(let value): .bool(value)
+        }
+    }
+}
+/// `game.create.options`: at most 16 keys matching `^[a-zA-Z][a-zA-Z0-9]{0,31}$`; the game module checks the values.
+public typealias GameOptions = [String: GameOptionValue]
+enum GameOptionsEncoding {
+    static let maxKeys = 16
+    static func json(_ options: GameOptions) -> JSONValue? {
+        let valid = options.keys.filter { $0.range(of: "^[a-zA-Z][a-zA-Z0-9]{0,31}$", options: .regularExpression) != nil }.sorted()
+        var value: [String: JSONValue] = [:]
+        for key in valid.prefix(maxKeys) { if let item = options[key]?.json { value[key] = item } }
+        return value.isEmpty ? nil : .object(value)
+    }
+}
+
+/// Blackjack table switches (`BLACKJACK_DEFAULT_RULES`: insurance on, surrender off).
+public struct BlackjackTableOptions: Equatable, Sendable {
+    public var insurance: Bool
+    public var surrender: Bool
+    public init(insurance: Bool = true, surrender: Bool = false) { self.insurance = insurance; self.surrender = surrender }
+    public static let standard = BlackjackTableOptions()
+    public var options: GameOptions { ["insurance": .bool(insurance), "surrender": .bool(surrender)] }
+}
+/// Batak house rules (`BatakRules`); the scoring switches do not apply to Koz Maça.
+public struct BatakHouseRules: Equatable, Sendable {
+    /// "Koz kırılmadan koz açılmaz".
+    public var noTrumpLeadUntilBroken: Bool
+    /// "Savunma batağı".
+    public var defenderBatakPenalty: Bool
+    /// "İhale kadar yaz".
+    public var writeContract: Bool
+    public init(noTrumpLeadUntilBroken: Bool = true, defenderBatakPenalty: Bool = false, writeContract: Bool = false) {
+        self.noTrumpLeadUntilBroken = noTrumpLeadUntilBroken; self.defenderBatakPenalty = defenderBatakPenalty; self.writeContract = writeContract
+    }
+    public static let standard = BatakHouseRules()
+    public var options: GameOptions {
+        ["noTrumpLeadUntilBroken": .bool(noTrumpLeadUntilBroken), "defenderBatakPenalty": .bool(defenderBatakPenalty), "writeContract": .bool(writeContract)]
+    }
+}
+/// Pişti match: `target` 101, 151 (default) or 251; an opening jack on top goes back into the deck by default.
+public struct PistiTableOptions: Equatable, Sendable {
+    public static let targets = [101, 151, 251]
+    public var target: Int
+    public var reshuffleJackTop: Bool
+    public init(target: Int = 151, reshuffleJackTop: Bool = true) { self.target = target; self.reshuffleJackTop = reshuffleJackTop }
+    public var options: GameOptions {
+        ["target": .number(Double(Self.targets.contains(target) ? target : 151)), "reshuffleJackTop": .bool(reshuffleJackTop)]
+    }
+}
+/// Classic Okey scoring: `countdown` (everyone starts at 20) or `winner` (+1 per win).
+public enum OkeyScoring: String, CaseIterable, Sendable {
+    case countdown, winner
+    public var title: String { self == .countdown ? "Geri sayım" : "Kazanan +1" }
+}
+public struct OkeyTableOptions: Equatable, Sendable {
+    public var scoring: OkeyScoring
+    public init(scoring: OkeyScoring = .countdown) { self.scoring = scoring }
+    public var options: GameOptions { ["scoring": .string(scoring.rawValue)] }
+}
+/// Tavla match to 3, 5 (default) or 7 points; `starterRerolls`: the higher opening die rerolls both dice.
+public struct TavlaTableOptions: Equatable, Sendable {
+    public static let targets = [3, 5, 7]
+    public var matchTo: Int
+    public var starterRerolls: Bool
+    public init(matchTo: Int = 5, starterRerolls: Bool = false) { self.matchTo = matchTo; self.starterRerolls = starterRerolls }
+    public var options: GameOptions {
+        ["matchTo": .number(Double(Self.targets.contains(matchTo) ? matchTo : 5)), "starterRerolls": .bool(starterRerolls)]
+    }
+}
+
 /// Which game a new table plays, with only the options that game accepts.
 public enum GameSetup: Equatable, Sendable {
-    /// Nil uses the service default rules.
-    case holdem(HoldemTableRules?)
-    case blackjack
-    case batak(BatakVariant)
+    /// Nil uses the service default rules; `muckLosers` hides losing showdown hands.
+    case holdem(HoldemTableRules?, muckLosers: Bool = false)
+    case blackjack(BlackjackTableOptions = .standard)
+    case batak(BatakVariant, rules: BatakHouseRules = .standard)
     /// `folding` = katlamalı, `teams` = eşli.
     case okey101(folding: Bool, teams: Bool)
+    case pisti(PistiTableOptions = PistiTableOptions())
+    case okey(OkeyTableOptions = OkeyTableOptions())
+    case tavla(TavlaTableOptions = TavlaTableOptions())
+    /// Any registry game by its protocol id, with raw options (a game this build has no typed setup for).
+    case custom(kind: GameKind, options: GameOptions)
     public var kind: GameKind {
         switch self {
         case .holdem: .holdem
         case .blackjack: .blackjack
         case .batak: .batak
         case .okey101: .okey101
+        case .pisti: .pisti
+        case .okey: .okey
+        case .tavla: .tavla
+        case .custom(let kind, _): kind
+        }
+    }
+    /// `game.create.options` for this setup (empty means none are sent).
+    public var options: GameOptions {
+        switch self {
+        case .holdem(_, let muck): muck ? ["muckLosers": .bool(true)] : [:]
+        case .blackjack(let rules): rules.options
+        case .batak(_, let rules): rules.options
+        case .okey101: [:]
+        case .pisti(let options): options.options
+        case .okey(let options): options.options
+        case .tavla(let options): options.options
+        case .custom(_, let options): options
         }
     }
 }
@@ -697,6 +918,8 @@ public enum GameAction: Equatable, Sendable {
     /// Between hands: a positive even amount up to the seat's chips.
     case bet(Int)
     case hit, stand, double, split
+    /// Table rules: only when `legalActions` offers them.
+    case surrender, insurance, declineInsurance
     // Batak
     case bid(Int)
     /// In Koz Maça a pass commits to 1.
@@ -711,12 +934,15 @@ public enum GameAction: Equatable, Sendable {
     /// Take the previous player's last discard (it must be used in an opening or a meld this turn).
     case takeDiscard
     case discard(tileID: String)
-    /// Ordered physical tile ids per run/group.
-    case open(melds: [[String]])
+    /// Ordered physical tile ids per run/group; `kinds` reads each meld as a run or a group when its okeys allow
+    /// both (nil entries let the server pick; nil sends nothing).
+    case open(melds: [[String]], kinds: [OkeyMeldKind?]? = nil)
     /// Five or more pairs.
     case openPairs([[String]])
     /// Add tiles to the table meld at `meld`; with `replacingJoker`, swap the one natural tile for that joker.
     case process(meld: Int, tileIDs: [String], replacingJoker: String? = nil)
+    /// First turn only: show the indicator's twin from the hand.
+    case gosterge
 
     public var kind: GameActionKind {
         switch self {
@@ -730,6 +956,10 @@ public enum GameAction: Equatable, Sendable {
         case .stand: .stand
         case .double: .double
         case .split: .split
+        case .surrender: .surrender
+        case .insurance: .insurance
+        case .declineInsurance: .declineInsurance
+        case .gosterge: .gosterge
         case .bid: .bid
         case .pass: .pass
         case .trump: .trump
@@ -755,7 +985,10 @@ public enum GameAction: Equatable, Sendable {
         case .play(let card): value["cardId"] = .string(card)
         case .takeDiscard: value["cardId"] = .string("discard")
         case .discard(let tile): value["cardId"] = .string(tile)
-        case .open(let melds), .openPairs(let melds): value["melds"] = groups(melds)
+        case .open(let melds, let kinds):
+            value["melds"] = groups(melds)
+            if let kinds { value["meldKinds"] = .array(kinds.prefix(10).map { $0.map { .string($0.rawValue) } ?? .null }) }
+        case .openPairs(let melds): value["melds"] = groups(melds)
         case .process(let meld, let tiles, let joker):
             value["amount"] = amount(meld); value["tileIds"] = ids(tiles)
             if let joker { value["cardId"] = .string(joker) }
@@ -765,31 +998,56 @@ public enum GameAction: Equatable, Sendable {
     }
 }
 
+/// 101: how an opening meld with okeys is read (`meldKinds`).
+public enum OkeyMeldKind: String, Sendable { case run, group }
+
 /// The `game.*` commands; send through `ActivityCommand.game(_:)` and `ActivityCommand.envelope`.
 public enum GameCommand: Equatable, Sendable {
+    /// Seat numbers run 0..<`maxSeats` (protocol `MAX_GAME_SEATS`).
+    public static let maxSeats = 12
+    /// Encoded `game.action.payload` limit (protocol `MAX_GAME_PAYLOAD_BYTES`).
+    public static let maxPayloadBytes = 8192
     case create(GameSetup, replacing: GameReplacement? = nil)
     /// Owner only, Hold'em, before the first hand.
     case configure(HoldemTableRules)
     case watch(Bool)
-    /// Take a free seat; on the own seat, asks to take control back from the bot. `buyIn` is Hold'em only.
+    /// Take a free seat; on the own seat, asks to take control back from the bot. `buyIn` is Hold'em, and the
+    /// Blackjack rebuy on the own seat when chips are below 2.
     case sit(seat: Int, buyIn: Int? = nil)
     /// Owner only.
     case addBot(seat: Int)
+    /// Owner or room host: frees a bot's seat or an away player's seat (`game.seat.remove`).
+    case removeSeat(seat: Int)
     /// "Masadan kalk": frees the seat between hands, a bot finishes a running hand; also stops watching.
     case leave
     case action(GameAction)
+    /// A registry game's action: `{action, payload}` (Pişti `play`, Okey `draw`, Tavla `move`…). See `GameMove`.
+    case act(name: String, payload: JSONValue? = nil)
+
+    /// The protocol's shape check for `act` (`GAME_ACTION_PATTERN` and the payload size); the service checks the rest.
+    public static func validAction(name: String, payload: JSONValue?) -> Bool {
+        guard name.range(of: "^[a-z][a-z0-9-]{0,31}$", options: .regularExpression) != nil, name != "start" || payload == nil else { return false }
+        guard let payload else { return true }
+        guard let data = try? JSONEncoder().encode(payload) else { return false }
+        return data.count <= maxPayloadBytes
+    }
+    public var valid: Bool {
+        if case .act(let name, let payload) = self { return Self.validAction(name: name, payload: payload) }
+        return true
+    }
 
     public var json: JSONValue {
-        let seatNumber = { (n: Int) in JSONValue.number(Double(min(8, max(0, n)))) }
+        let seatNumber = { (n: Int) in JSONValue.number(Double(min(Self.maxSeats - 1, max(0, n)))) }
         switch self {
         case .create(let setup, let replacing):
             var value: [String: JSONValue] = ["type": .string("game.create"), "game": .string(setup.kind.rawValue)]
             switch setup {
-            case .holdem(let rules): if let rules { value["holdem"] = rules.json }
-            case .blackjack: break
-            case .batak(let variant): value["variant"] = .string(variant.rawValue)
+            case .holdem(let rules, _): if let rules { value["holdem"] = rules.json }
+            case .batak(let variant, _): value["variant"] = .string(variant.rawValue)
             case .okey101(let folding, let teams): value["folding"] = .bool(folding); value["teams"] = .bool(teams)
+            case .blackjack, .pisti, .okey, .tavla, .custom: break
             }
+            if let options = GameOptionsEncoding.json(setup.options) { value["options"] = options }
             if let replacing {
                 value["replacePrimary"] = .object(["activity": .string(replacing.activity), "startedAt": .number(Double(max(0, replacing.startedAt)))])
             }
@@ -801,8 +1059,45 @@ public enum GameCommand: Equatable, Sendable {
             if let buyIn { value["buyIn"] = .number(Double(min(1_000_000, max(1, buyIn)))) }
             return .object(value)
         case .addBot(let seat): return .object(["type": .string("game.bot.add"), "seat": seatNumber(seat)])
+        case .removeSeat(let seat): return .object(["type": .string("game.seat.remove"), "seat": seatNumber(seat)])
         case .leave: return .object(["type": .string("game.leave")])
         case .action(let action): return action.json
+        case .act(let name, let payload):
+            var value: [String: JSONValue] = ["type": .string("game.action"), "action": .string(name)]
+            if let payload { value["payload"] = payload }
+            return .object(value)
         }
     }
+}
+
+/// Typed `game.action` payloads of the registry games, as their `parseCommand` reads them.
+public enum GameMove {
+    /// Pişti: play a card from the hand.
+    public static func pistiPlay(cardID: String) -> GameCommand { .act(name: "play", payload: .object(["cardId": .string(cardID)])) }
+    /// Okey: draw from the stock or take the previous player's discard.
+    public static func okeyDraw(fromDiscard: Bool) -> GameCommand { .act(name: "draw", payload: .object(["from": .string(fromDiscard ? "discard" : "stock")])) }
+    public static func okeyDiscard(tileID: String) -> GameCommand { .act(name: "discard", payload: .object(["tileId": .string(tileID)])) }
+    /// Finish by putting this last tile in the middle.
+    public static func okeyFinish(tileID: String) -> GameCommand { .act(name: "finish", payload: .object(["tileId": .string(tileID)])) }
+    public static let okeyShowIndicator = GameCommand.act(name: "show-indicator")
+    /// Tavla point: 0…23, the bar (from) or off the board (to).
+    public enum TavlaPoint: Equatable, Sendable {
+        case point(Int), bar, off
+        var json: JSONValue {
+            switch self {
+            case .point(let index): .number(Double(min(23, max(0, index))))
+            case .bar: .string("bar")
+            case .off: .string("off")
+            }
+        }
+    }
+    public static let tavlaRoll = GameCommand.act(name: "roll")
+    /// One step; `die` picks which die it uses when both could.
+    public static func tavlaMove(from: TavlaPoint, to: TavlaPoint, die: Int? = nil) -> GameCommand {
+        var payload: [String: JSONValue] = ["from": from.json, "to": to.json]
+        if let die { payload["die"] = .number(Double(min(6, max(1, die)))) }
+        return .act(name: "move", payload: .object(payload))
+    }
+    public static let tavlaUndo = GameCommand.act(name: "undo")
+    public static let tavlaConfirm = GameCommand.act(name: "confirm")
 }
