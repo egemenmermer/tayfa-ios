@@ -33,7 +33,8 @@ struct BlackjackTableView: View {
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: game.status)
         }
         .onAppear { if bet == 0 { bet = initialBet(round) } }
-        .onChange(of: BlackjackSnapshot(hand: game.history.count, round: round)) { old, new in track(old: old, new: new) }
+        .onChange(of: BlackjackSnapshot(hand: BlackjackLayout.handNumber(game), round: round)) { old, new in track(old: old, new: new) }
+        .onChange(of: context.mySeat?.chips) { _, _ in if bet == 0 || bet > BlackjackChips.maxBet(context.mySeat?.chips ?? 0) { bet = initialBet(round) } }
     }
 
     // MARK: Felt
@@ -83,8 +84,8 @@ struct BlackjackTableView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(dealerAccessibility(round))
         }
-        // A new round starts with fresh cards (the old hole card must not flip back face down).
-        .id(game.history.count)
+        // Same identity from the deal through the reveal (so the hole card turns over), fresh cards on the next deal.
+        .id(BlackjackLayout.handNumber(game))
     }
 
     @ViewBuilder private func others(_ round: BlackjackRound?) -> some View {
@@ -328,7 +329,7 @@ struct BlackjackTableView: View {
 
     private func rulesStrip(_ rules: BlackjackRules) -> some View {
         let items = ["Krupiye 17’de durur", "Blackjack 3:2 öder", rules.insurance ? "Sigorta 2:1" : "Sigorta kapalı",
-                     rules.surrender ? "Teslim açık" : "Teslim kapalı", "El \(game.history.count + (game.status == .playing ? 1 : 0))"]
+                     rules.surrender ? "Teslim açık" : "Teslim kapalı", "El \(BlackjackLayout.handNumber(game))"]
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(items, id: \.self) { text in

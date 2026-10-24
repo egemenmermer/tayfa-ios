@@ -6,7 +6,7 @@ final class GamesBlackjackTests: XCTestCase {
     private func card(_ rank: Int, _ suit: CardSuit = .spades) -> PlayingCard { PlayingCard(id: "\(rank)-\(suit.rawValue)", suit: suit, rank: rank) }
     private func cardJSON(_ rank: Int, _ suit: String = "spades") -> String { #"{"id":"\#(rank)-\#(suit)","suit":"\#(suit)","rank":\#(rank)}"# }
 
-    private func state(status: String = "playing", turn: String = "0", seats: String? = nil, view: String, legal: [String] = []) throws -> GameState {
+    private func state(status: String = "playing", turn: String = "0", seats: String? = nil, view: String, legal: [String] = [], history: String = "[]") throws -> GameState {
         let seatList = seats ?? #"""
         [{"seat":2,"userId":"can","name":"Can","bot":false,"chips":980,"connected":true,"pendingNextHand":false},
          {"seat":0,"userId":"ece","name":"Ece","bot":false,"chips":990,"connected":true,"pendingNextHand":false}]
@@ -16,7 +16,7 @@ final class GamesBlackjackTests: XCTestCase {
         {"kind":"blackjack","ownerId":"ece","status":"\#(status)","seats":\#(seatList),"turn":\#(turn),
          "view":{\#(view),"tableName":"blackjack","spectators":[],"watching":false,"spectatorAccess":true,
                  "legalActions":\#(legalJSON),"turnDeadline":47000,"capacity":7,"statistics":{}},
-         "history":[]}
+         "history":\#(history)}
         """#
         return try JSONDecoder().decode(GameState.self, from: Data(json.utf8))
     }
@@ -187,6 +187,19 @@ final class GamesBlackjackTests: XCTestCase {
         XCTAssertEqual(BlackjackLayout.others(game, me: "zeynep").map(\.userId), ["ece", "can", "bot-1"])
         XCTAssertTrue(BlackjackLayout.sittingOut(game, round: game.blackjackRound, userID: "bot-1"))
         XCTAssertFalse(BlackjackLayout.sittingOut(game, round: game.blackjackRound, userID: "can"))
+    }
+
+    /// The dealer row keeps its identity from the deal through the reveal (the hole card turns over) even though the
+    /// history entry arrives in the same update that finishes the round, and even once the history list is capped.
+    func testHandNumberHoldsFromDealThroughReveal() throws {
+        let entry = { (hand: Int) in #"{"hand":\#(hand),"endedAt":1,"result":{}}"# }
+        let playing = try state(view: playingView, legal: ["hit"], history: "[\(entry(6)), \(entry(7))]")
+        let finished = try state(status: "finished", turn: "null", view: playingView, legal: ["start"], history: "[\(entry(7)), \(entry(8))]")
+        let next = try state(view: playingView, legal: ["hit"], history: "[\(entry(7)), \(entry(8))]")
+        XCTAssertEqual(BlackjackLayout.handNumber(playing), 8)
+        XCTAssertEqual(BlackjackLayout.handNumber(finished), 8)
+        XCTAssertEqual(BlackjackLayout.handNumber(next), 9)
+        XCTAssertEqual(BlackjackLayout.handNumber(try state(status: "waiting", turn: "null", view: playingView)), 0)
     }
 
     func testLastMoveFromTwoViews() {

@@ -290,6 +290,12 @@ public struct BlackjackControls: Equatable, Sendable {
 // MARK: - Layout, moves, summary
 
 public enum BlackjackLayout {
+    /// The hand on the table ("El N"): stays the same from the deal through the reveal (the history entry lands in the
+    /// same update that settles the round) and steps on the next deal. Uses the last entry's hand number because the
+    /// service caps the history list.
+    public static func handNumber(_ game: GameState) -> Int {
+        (game.history.last?.hand ?? 0) + (game.status == .playing ? 1 : 0)
+    }
     /// Everyone else at the table in seat order (the viewer's own spot is drawn big at the bottom).
     public static func others(_ game: GameState, me: String) -> [GameSeat] { game.orderedSeats.filter { $0.userId != me } }
     /// Seated but not dealt in (sat down late, or could not cover the smallest bet).
