@@ -342,9 +342,11 @@ private struct HallControl: View {
     var primary = false
     var dimmed = false
     let action: () -> Void
+    // Scales with Dynamic Type but stays inside the fixed 38 pt circle.
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 16
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+            Image(systemName: icon).font(.system(size: min(iconSize, 20), weight: .semibold)).foregroundStyle(.white)
                 .frame(width: 38, height: 38).background(primary ? Palette.accent.opacity(0.9) : Color.black.opacity(0.55), in: Circle())
                 .frame(width: 44, height: 44).contentShape(Rectangle())
         }

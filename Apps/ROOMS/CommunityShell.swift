@@ -1,6 +1,7 @@
 import UIKit
 import SwiftUI
 import PhotosUI
+import UserNotifications
 import RoomsCore
 
 struct CommunityShell: View {
@@ -19,6 +20,8 @@ struct CommunityShell: View {
     @State private var friendsOpen = false
     @State private var djOpen = false
     @State private var djNeedsRoom = false
+    @ScaledMetric(relativeTo: .body) private var tabIconSize: CGFloat = 19
+    @ScaledMetric(relativeTo: .caption2) private var pillSize: CGFloat = 8
     private var modalVisible: Bool { account || audioSettings || communityInfo || model.roomPreview != nil || model.roomExpanded }
     var body: some View {
         NavigationStack(path: Binding(get: { model.conversationPath }, set: { model.setConversationPath($0) })) {
@@ -102,7 +105,19 @@ struct CommunityShell: View {
         .onChange(of: model.roomExpanded) { _, expanded in if expanded { miniRect = .zero } else { media.setVisibleCameras([]) } }
         .onAppear { model.consumeDirectMessage() }
         .onChange(of: media.keepsScreenAwake, initial: true) { _, awake in UIApplication.shared.isIdleTimerDisabled = awake }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        .onChange(of: appBadge, initial: true) { _, count in setAppBadge(count) }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false; setAppBadge(0) }
+    }
+    /// Unread direct conversations plus unread mentions elsewhere, like the desktop Dock badge.
+    private var appBadge: Int {
+        chat.channels.reduce(0) { total, channel in
+            let mentions = chat.mentionCount(channel.id)
+            return total + (mentions > 0 ? mentions : (channel.isDirect && chat.unread(channel.id) == true ? 1 : 0))
+        }
+    }
+    /// Needs the badge permission; without it iOS refuses and the badge simply stays off.
+    private func setAppBadge(_ count: Int) {
+        Task { try? await UNUserNotificationCenter.current().setBadgeCount(count) }
     }
     private func restoreChatVisibility() {
         if let id = model.conversationPath.last { chat.setConversationVisible(!modalVisible, channelID: id) }
@@ -156,13 +171,15 @@ struct CommunityShell: View {
             }.buttonStyle(.plain).accessibilityLabel("Sen").accessibilityAddTraits(youTab ? .isSelected : [])
         }
         .padding(.top, 6)
+        // Like the system tab bar, the bottom bar stops growing at the first accessibility size.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .background(Palette.rail.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) { Rectangle().fill(Palette.separator).frame(height: 1) }
     }
     private func tabButton(_ title: String, icon: String, selected: Bool, badge: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Image(systemName: icon).font(.system(size: 19))
+                Image(systemName: icon).font(.system(size: tabIconSize))
                     .overlay(alignment: .topTrailing) { if badge { Circle().fill(.red).frame(width: 9, height: 9).offset(x: 5, y: -2) } }
                 Text(title).font(.caption2.weight(.semibold))
             }.frame(maxWidth: .infinity, minHeight: 50).foregroundStyle(selected ? Color.primary : Color.secondary)
@@ -235,6 +252,16 @@ struct CommunityShell: View {
         let order = community.ordered(availableChannels), voice = Set(model.rooms.map(\.id))
         return [("text", "METİN KANALLARI", order.filter { !voice.contains($0) }), ("voice", "SES ODALARI", order.filter { voice.contains($0) })].filter { !$0.2.isEmpty }
     }
+    /// First run: an approved account that has not joined a community yet lands here.
+    private var noCommunities: some View {
+        ContentUnavailableView {
+            Label("Henüz bir topluluğa katılmadın", systemImage: "person.3")
+        } description: {
+            Text("Bir arkadaşının gönderdiği davet bağlantısını aç; Tayfa seni topluluğa ekler. Katılınca kanalların burada görünür.")
+        } actions: {
+            Button("Yenile") { model.retryList(); chat.retryCatalog() }.buttonStyle(.bordered).frame(minHeight: 44)
+        }.font(.footnote)
+    }
     private var channels: some View {
         VStack(alignment: .leading, spacing: 3) {
             if let community = model.selectedCommunity, query.isEmpty || matches("Sinema") { HallSidebarRow(hub: model.cinema, chat: chat, community: community.id).padding(.top, 4) }
@@ -245,7 +272,8 @@ struct CommunityShell: View {
                     else if let channel = chat.channels.first(where: { $0.id == id }), matches(channel.name) { textRow(channel) }
                 }
             }
-            if sections.isEmpty && !chat.catalogLoading && model.listStatus.isEmpty { ContentUnavailableView("Henüz kanal yok", systemImage: "number", description: Text("Erişebildiğin kanallar burada görünecek.")).font(.footnote) }
+            if model.communities.isEmpty && !chat.catalogLoading && model.listStatus.isEmpty && model.error == nil { noCommunities }
+            else if sections.isEmpty && !chat.catalogLoading && model.listStatus.isEmpty { ContentUnavailableView("Henüz kanal yok", systemImage: "number", description: Text("Erişebildiğin kanallar burada görünecek.")).font(.footnote) }
         }
     }
     private func sectionTitle(_ title: String) -> some View { HStack(spacing: 5) { Image(systemName: "chevron.down"); Text(title) }.font(.caption2.weight(.bold)).foregroundStyle(.secondary).padding(.top, 18).padding(.bottom, 6).accessibilityAddTraits(.isHeader) }
@@ -261,7 +289,7 @@ struct CommunityShell: View {
                 HStack(spacing: 9) {
                     Image(systemName: "speaker.wave.2.fill").font(.subheadline).foregroundStyle(.secondary)
                     Text(room.name).font(.subheadline).lineLimit(2); Spacer(minLength: 0)
-                    if case let members = model.occupants(room.id), !members.isEmpty { if members.contains(where: { $0.screen == true }) { Text("YAYIN").font(.system(size: 8, weight: .heavy)).padding(4).background(Palette.accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 4)).foregroundStyle(Palette.accent) }; Text("\(members.count)").font(.caption2.weight(.medium)).foregroundStyle(.secondary) }
+                    if case let members = model.occupants(room.id), !members.isEmpty { if members.contains(where: { $0.screen == true }) { Text("YAYIN").font(.system(size: pillSize, weight: .heavy)).padding(4).background(Palette.accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 4)).foregroundStyle(Palette.accent) }; Text("\(members.count)").font(.caption2.weight(.medium)).foregroundStyle(.secondary) }
                 }.foregroundStyle(.primary).padding(.horizontal, 10).frame(minHeight: model.active?.id == room.id ? 42 : 46).background(model.active?.id == room.id ? Palette.accent.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 9)).frame(minHeight: 44).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityHint("Oda önizlemesini açar; katılmadan mikrofon veya kamera açılmaz")
             ForEach(Array(model.occupants(room.id).prefix(4)), id: \.id) { person in
@@ -523,8 +551,9 @@ private struct CommunitySheet: View {
     }
 }
 private struct DotLabelStyle: LabelStyle {
+    @ScaledMetric(relativeTo: .caption) private var dotSize: CGFloat = 7
     func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) { configuration.icon.font(.system(size: 7)); configuration.title.foregroundStyle(.secondary) }
+        HStack(spacing: 4) { configuration.icon.font(.system(size: dotSize)); configuration.title.foregroundStyle(.secondary) }
     }
 }
 
@@ -605,6 +634,7 @@ private struct AccountPanel: View {
     @State private var profile: OwnProfile?
     @State private var loadError: String?
     @State private var presenceError: String?
+    @State private var confirmLogout = false
     var body: some View {
         NavigationStack {
             Form {
@@ -638,9 +668,15 @@ private struct AccountPanel: View {
                     NavigationLink { RoomAudioSettingsView(media: media, chat: chat, embedded: true) } label: { Label("Ses ve görüntü", systemImage: "slider.horizontal.3") }
                     Button { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } } label: { Label("Bildirimler", systemImage: "bell.badge") }
                 }
-                Section { Button("Çıkış yap", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { dismiss(); Task { await model.logout() } } }
+                Section { Button("Çıkış yap", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { confirmLogout = true } }
                 Section { Text("Tayfa \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))").font(.footnote).foregroundStyle(.secondary) }
             }.navigationTitle("Ayarlar").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Kapat") { dismiss() } } }
+                .confirmationDialog("Çıkış yapılsın mı?", isPresented: $confirmLogout, titleVisibility: .visible) {
+                    Button("Çıkış yap", role: .destructive) { dismiss(); Task { await model.logout() } }
+                    Button("Vazgeç", role: .cancel) {}
+                } message: {
+                    Text(model.active != nil ? "Çıkış yaparsan bağlı olduğun sesli odadan da ayrılırsın." : "Bu cihazdaki oturum kapanır; tekrar giriş yapman gerekir.")
+                }
                 .task {
                     do { profile = try await model.loadOwnProfile(); loadError = nil }
                     catch { loadError = "Profil yüklenemedi: \(error.localizedDescription)" }

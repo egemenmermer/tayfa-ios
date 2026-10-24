@@ -51,7 +51,7 @@ targets:
         NSCameraUsageDescription: Tayfa, kameranı yalnızca sesli odada kamerayı açtığında kullanır.
         NSMicrophoneUsageDescription: Tayfa, mikrofonu yalnızca sesli odada konuşmayı açtığında kullanır.
         UIBackgroundModes: [audio, voip]
-        UILaunchScreen: {}
+        UILaunchScreen: {UIColorName: LaunchBackground}  # matches Palette.canvas
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         ITSAppUsesNonExemptEncryption: false
         UIUserInterfaceStyle: Dark
