@@ -327,11 +327,15 @@ private struct TavlaRoundView: View {
                 .position(x: geo.trayX, y: geo.size.height / 2)
             Rectangle().fill(TavlaColors.frameLight).frame(width: geo.trayWidth, height: 3).position(x: geo.trayX, y: geo.size.height / 2)
 
-            ForEach(0..<24, id: \.self) { index in pointView(index, geo) }
-            barView(geo)
-            trayView(geo, round: bottom, atBottom: true)
-            trayView(geo, round: top, atBottom: false)
+            Group {
+                ForEach(0..<24, id: \.self) { index in pointView(index, geo) }
+                barView(geo)
+                trayView(geo, round: bottom, atBottom: true)
+                trayView(geo, round: top, atBottom: false)
+            }
+            .accessibilityHidden(true)
             trailView(geo)
+            accessibilityProxies(geo)
             if dragFrom != nil, let dragPoint {
                 TavlaCheckerView(round: you ?? bottom, size: geo.checker * 1.1)
                     .shadow(radius: 6).position(dragPoint).allowsHitTesting(false)
@@ -357,7 +361,6 @@ private struct TavlaRoundView: View {
         let x = geo.x(slot.col)
         let triangleY = down ? geo.top + geo.pointHeight / 2 : geo.bottomEdge - geo.pointHeight / 2
         let shown = min(point.count, 5)
-        let number = TavlaBoard.pointNumber(index, seat: bottom)
         return ZStack {
             TavlaTriangle(pointsDown: down)
                 .fill((slot.col + (down ? 0 : 1)).isMultiple(of: 2) ? TavlaColors.pointA : TavlaColors.pointB)
@@ -381,11 +384,6 @@ private struct TavlaRoundView: View {
                 }
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(number). hane, \(point.count == 0 ? "boş" : "\(point.count) \(point.seat.map(TavlaColors.seatName) ?? "") pul")")
-        .accessibilityValue(isSelected ? "seçili" : isTarget ? "oynanabilir hedef" : isSource ? "oynanabilir pul" : "")
-        .accessibilityAddTraits(isTarget || isSource ? .isButton : [])
-        .accessibilityAction { tap(.point(index)) }
         .animation(reduceMotion ? nil : .spring(duration: 0.3), value: point)
     }
 
@@ -408,11 +406,6 @@ private struct TavlaRoundView: View {
                 }
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Bar: \(name(bottom)) \(view.onBar(bottom)), \(name(top)) \(view.onBar(top)) kırık pul")
-        .accessibilityValue(selectedBar ? "seçili" : sourceBar ? "oynanabilir pul" : "")
-        .accessibilityAddTraits(sourceBar ? .isButton : [])
-        .accessibilityAction { tap(.bar) }
     }
 
     private func trayView(_ geo: TavlaGeometry, round: Int, atBottom: Bool) -> some View {
@@ -437,11 +430,50 @@ private struct TavlaRoundView: View {
                     .position(x: geo.trayX, y: geo.size.height / 2 + (atBottom ? 12 : -12))
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name(round)) toplanan pul: \(count)")
-        .accessibilityValue(isTarget ? "oynanabilir hedef: topla" : "")
-        .accessibilityAddTraits(isTarget ? .isButton : [])
-        .accessibilityAction { if isTarget { tap(.off) } }
+    }
+
+    /// VoiceOver elements framed on each point, the bar and the trays (the drawn layers fill the whole board).
+    private func accessibilityProxies(_ geo: TavlaGeometry) -> some View {
+        let half = geo.fieldHeight / 2
+        return ZStack {
+            ForEach(0..<24, id: \.self) { index in
+                let slot = TavlaBoard.slot(index, you: you)
+                let point = view.points[index]
+                let isTarget = targets.contains(.point(index))
+                let isSource = sources.contains(.point(index))
+                let pieces = point.count == 0 ? "boş" : "\(point.count) \(point.seat.map(TavlaColors.seatName) ?? "") pul"
+                Color.clear
+                    .frame(width: geo.col, height: half)
+                    .contentShape(Rectangle())
+                    .accessibilityElement()
+                    .accessibilityLabel("\(TavlaBoard.pointNumber(index, seat: bottom)). hane, \(pieces)")
+                    .accessibilityValue(selected == .point(index) ? "seçili" : isTarget ? "oynanabilir hedef" : isSource ? "oynanabilir pul" : "")
+                    .accessibilityAddTraits(isTarget || isSource ? .isButton : [])
+                    .accessibilityAction { tap(.point(index)) }
+                    .position(x: geo.x(slot.col), y: slot.row == .top ? geo.top + half / 2 : geo.bottomEdge - half / 2)
+            }
+            Color.clear
+                .frame(width: geo.barWidth, height: geo.fieldHeight)
+                .accessibilityElement()
+                .accessibilityLabel("Bar: \(name(bottom)) \(view.onBar(bottom)), \(name(top)) \(view.onBar(top)) kırık pul")
+                .accessibilityValue(selected == .bar ? "seçili" : sources.contains(.bar) ? "oynanabilir pul" : "")
+                .accessibilityAddTraits(sources.contains(.bar) ? .isButton : [])
+                .accessibilityAction { tap(.bar) }
+                .position(x: geo.barX, y: geo.size.height / 2)
+            ForEach([bottom, top], id: \.self) { round in
+                let atBottom = round == bottom
+                let isTarget = atBottom && targets.contains(.off)
+                Color.clear
+                    .frame(width: geo.trayWidth, height: half)
+                    .accessibilityElement()
+                    .accessibilityLabel("\(name(round)) toplanan pul: \(view.borneOff(round))")
+                    .accessibilityValue(isTarget ? "oynanabilir hedef: topla" : "")
+                    .accessibilityAddTraits(isTarget ? .isButton : [])
+                    .accessibilityAction { if isTarget { tap(.off) } }
+                    .position(x: geo.trayX, y: atBottom ? geo.bottomEdge - half / 2 : geo.top + half / 2)
+            }
+        }
+        .allowsHitTesting(false)
     }
 
     /// The opponent's moves as arrows, with a ghost where each checker left from, until the viewer rolls.
