@@ -13,7 +13,7 @@ import UserNotifications
     func enable() async {
         let center = UNUserNotificationCenter.current()
         if await center.notificationSettings().authorizationStatus == .notDetermined {
-            _ = try? await center.requestAuthorization(options: [.alert, .sound])
+            _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         }
         switch await center.notificationSettings().authorizationStatus {
         case .authorized, .provisional, .ephemeral: UIApplication.shared.registerForRemoteNotifications()
@@ -29,6 +29,15 @@ import UserNotifications
         Task { await model.subscribePush(deviceToken: deviceToken) }
     }
     func consumePendingChannel() -> String? { defer { pendingChannelID = nil }; return pendingChannelID }
+    /// Sign-out: a tapped alert of the old account must not open a conversation after the next login.
+    /// `stopDelivery` is for a sign-out the server has not confirmed yet: the old session's subscription
+    /// may still be live, so this device stops taking alerts until the next sign-in registers again.
+    func signedOut(stopDelivery: Bool) {
+        pendingChannelID = nil
+        guard stopDelivery else { return }
+        deviceToken = nil
+        UIApplication.shared.unregisterForRemoteNotifications()
+    }
     fileprivate func open(channelID: String) {
         pendingChannelID = channelID
         model?.openPendingNotification()

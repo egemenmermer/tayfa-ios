@@ -96,6 +96,15 @@ struct RoomAudioSettingsView: View {
                     Text("Sen ya da başkası odaya girince veya çıkınca kısa bir ses çalar. Yalnızca sende duyulur.")
                 }
                 Section {
+                    Toggle("Oyun sesleri", isOn: Binding(
+                        get: { media.audioPreferences.gameSounds },
+                        set: { media.setGameSounds($0) }
+                    ))
+                    .accessibilityIdentifier("audio.gameSounds")
+                } footer: {
+                    Text("Oyun masalarında kart, taş, zar, sıra ve el sonu için kısa sesler. Yalnızca sende duyulur; düzeyi efekt ses düzeyini izler.")
+                }
+                Section {
                     Toggle("Kişisel giriş sesleri", isOn: Binding(
                         get: { media.audioPreferences.personalSounds },
                         set: { media.setPersonalSounds($0) }

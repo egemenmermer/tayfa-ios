@@ -28,6 +28,7 @@
 		73CBA89DADF81EC89CB697D3 /* LiveKit in Frameworks */ = {isa = PBXBuildFile; productRef = 34877FCDDAF3D52923FB671C /* LiveKit */; };
 		7649DAF19AE5A5F66CA49568 /* RoomsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC8DCE62E83593F4DCF52CF /* RoomsApp.swift */; };
 		98A9392373CEC2F4F7BC2BD8 /* RoomsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87042FB0DF7045611CF84C34 /* RoomsModel.swift */; };
+		A7E2C41B9D3F5068B1C2D3E4 /* RestoreRetryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F3D52CAE4061790C2D3E4F /* RestoreRetryView.swift */; };
 		992BD1E97521CB5A4A2793D5 /* HallPlayerSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059C04F84522F9D1B2A0D3F0 /* HallPlayerSurface.swift */; };
 		A21E6365AEA099AC4BB37453 /* HallModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B586C40071447D46261C72 /* HallModel.swift */; };
 		AA416EC78D4B6C0C75BAA36D /* DMCallWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB4AA902EC4C58D7D5001B32 /* DMCallWindow.swift */; };
@@ -47,6 +48,16 @@
 		F1C5B6B05BC84AE793DEF4B3 /* WatchTogether.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC61F9BCAC4026776CBB4A70 /* WatchTogether.swift */; };
 		FA0F5E0F5EC575589651B031 /* NativeRoomCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF935ADA2E8CD2BFBF251F3 /* NativeRoomCamera.swift */; };
 		FF5B796B536BF243AFBCD6C2 /* FullScreenStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 980C75121CA540DB7D26CF4C /* FullScreenStreamView.swift */; };
+		08995840CEB298599AB77486 /* GameKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF3E6661130C1548890EBF0 /* GameKit.swift */; };
+		56AC8157BEF482D49227ECCC /* GameTableHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE0397C4BD98FD9698869214 /* GameTableHost.swift */; };
+		746BAB4B9774C2427815367C /* GamesLobbyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC352089B5CBB25F2D0BA80 /* GamesLobbyView.swift */; };
+		A7DF23F8A0D1352CEF105DA7 /* HoldemTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D17AD0766AE56872BDAE669 /* HoldemTableView.swift */; };
+		89A04DD289BE19688793D65F /* BlackjackTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9CD8ED7883A22DA187917F9 /* BlackjackTableView.swift */; };
+		3616078A54DB6EBE28451E0D /* BatakTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB56AEF2A279D09A3D98D28 /* BatakTableView.swift */; };
+		D0941E4EC2A8ED4FEC4594E1 /* Okey101TableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32CBA1F27817E6864B8F501 /* Okey101TableView.swift */; };
+		1A2DEBA24E1D75EC6AC4F662 /* PistiTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0904C33CFC9999577EC37C95 /* PistiTableView.swift */; };
+		E35271E6365435087D146C0C /* OkeyTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E0688941D04443FED7E3656 /* OkeyTableView.swift */; };
+		98BB4B48149F6D61884F0BEB /* TavlaTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4432E6873E6E6480BDE4D8F1 /* TavlaTableView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +100,7 @@
 		69FE7B6A6E34866102DDA495 /* CinemaRelayLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CinemaRelayLoader.swift; sourceTree = "<group>"; };
 		74B586C40071447D46261C72 /* HallModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HallModel.swift; sourceTree = "<group>"; };
 		87042FB0DF7045611CF84C34 /* RoomsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomsModel.swift; sourceTree = "<group>"; };
+		B8F3D52CAE4061790C2D3E4F /* RestoreRetryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreRetryView.swift; sourceTree = "<group>"; };
 		8857278D8C5A1E5B5197A79C /* ROOMS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ROOMS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8CA97836AD572B9C0CD1F276 /* ROOMSBroadcast.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ROOMSBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		980C75121CA540DB7D26CF4C /* FullScreenStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenStreamView.swift; sourceTree = "<group>"; };
@@ -118,6 +130,16 @@
 		FB4AA902EC4C58D7D5001B32 /* DMCallWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMCallWindow.swift; sourceTree = "<group>"; };
 		FC58B22BE6880546A92F8759 /* DJLibraryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJLibraryViews.swift; sourceTree = "<group>"; };
 		FE58ADE9082806C370F9ED0A /* RoomsCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RoomsCore; path = Packages/RoomsCore; sourceTree = SOURCE_ROOT; };
+		BEF3E6661130C1548890EBF0 /* GameKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameKit.swift; sourceTree = "<group>"; };
+		DE0397C4BD98FD9698869214 /* GameTableHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameTableHost.swift; sourceTree = "<group>"; };
+		7BC352089B5CBB25F2D0BA80 /* GamesLobbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamesLobbyView.swift; sourceTree = "<group>"; };
+		6D17AD0766AE56872BDAE669 /* HoldemTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldemTableView.swift; sourceTree = "<group>"; };
+		A9CD8ED7883A22DA187917F9 /* BlackjackTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlackjackTableView.swift; sourceTree = "<group>"; };
+		6BB56AEF2A279D09A3D98D28 /* BatakTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatakTableView.swift; sourceTree = "<group>"; };
+		C32CBA1F27817E6864B8F501 /* Okey101TableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Okey101TableView.swift; sourceTree = "<group>"; };
+		0904C33CFC9999577EC37C95 /* PistiTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PistiTableView.swift; sourceTree = "<group>"; };
+		3E0688941D04443FED7E3656 /* OkeyTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OkeyTableView.swift; sourceTree = "<group>"; };
+		4432E6873E6E6480BDE4D8F1 /* TavlaTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TavlaTableView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -174,11 +196,13 @@
 				16B451DF8AAE9DB8111597DF /* ROOMS.entitlements */,
 				AFC8DCE62E83593F4DCF52CF /* RoomsApp.swift */,
 				87042FB0DF7045611CF84C34 /* RoomsModel.swift */,
+				B8F3D52CAE4061790C2D3E4F /* RestoreRetryView.swift */,
 				B280EAD36B0ED51F2CB51944 /* SessionVault.swift */,
 				F9CF54999AE2ABCE4ACC1DBC /* VoiceRoomViews.swift */,
 				DC61F9BCAC4026776CBB4A70 /* WatchTogether.swift */,
 				594B6D0D8961649F42E43661 /* Calls */,
 				BD411A30B2F201D96C7DDD17 /* Cinema */,
+				7FFE0B3DE87C364A52D6E453 /* Games */,
 				EA0A694331958432CB2C436B /* Moderation */,
 				AF51B4D1CE06BD7C4D571EAC /* Whiteboard */,
 			);
@@ -255,6 +279,23 @@
 				3F2EA67831574D2DDA25032E /* HallSidebar.swift */,
 			);
 			path = Cinema;
+			sourceTree = "<group>";
+		};
+		7FFE0B3DE87C364A52D6E453 /* Games */ = {
+			isa = PBXGroup;
+			children = (
+				6BB56AEF2A279D09A3D98D28 /* BatakTableView.swift */,
+				A9CD8ED7883A22DA187917F9 /* BlackjackTableView.swift */,
+				BEF3E6661130C1548890EBF0 /* GameKit.swift */,
+				DE0397C4BD98FD9698869214 /* GameTableHost.swift */,
+				7BC352089B5CBB25F2D0BA80 /* GamesLobbyView.swift */,
+				6D17AD0766AE56872BDAE669 /* HoldemTableView.swift */,
+				C32CBA1F27817E6864B8F501 /* Okey101TableView.swift */,
+				3E0688941D04443FED7E3656 /* OkeyTableView.swift */,
+				0904C33CFC9999577EC37C95 /* PistiTableView.swift */,
+				4432E6873E6E6480BDE4D8F1 /* TavlaTableView.swift */,
+			);
+			path = Games;
 			sourceTree = "<group>";
 		};
 		EA0A694331958432CB2C436B /* Moderation */ = {
@@ -406,11 +447,22 @@
 				6DD76E75A4D8A8914845CB61 /* RoomMedia.swift in Sources */,
 				7649DAF19AE5A5F66CA49568 /* RoomsApp.swift in Sources */,
 				98A9392373CEC2F4F7BC2BD8 /* RoomsModel.swift in Sources */,
+				A7E2C41B9D3F5068B1C2D3E4 /* RestoreRetryView.swift in Sources */,
 				E4C6EF50334AF380C7B259BB /* SessionVault.swift in Sources */,
 				69B9DEAB5329C797BE4C729B /* VoiceModerationSection.swift in Sources */,
 				ED96038D2D6E51AF2B44F394 /* VoiceRoomViews.swift in Sources */,
 				F1C5B6B05BC84AE793DEF4B3 /* WatchTogether.swift in Sources */,
 				F0BBEAD37FEDFC260C7B8D6E /* WhiteboardView.swift in Sources */,
+				08995840CEB298599AB77486 /* GameKit.swift in Sources */,
+				56AC8157BEF482D49227ECCC /* GameTableHost.swift in Sources */,
+				746BAB4B9774C2427815367C /* GamesLobbyView.swift in Sources */,
+				A7DF23F8A0D1352CEF105DA7 /* HoldemTableView.swift in Sources */,
+				89A04DD289BE19688793D65F /* BlackjackTableView.swift in Sources */,
+				3616078A54DB6EBE28451E0D /* BatakTableView.swift in Sources */,
+				D0941E4EC2A8ED4FEC4594E1 /* Okey101TableView.swift in Sources */,
+				1A2DEBA24E1D75EC6AC4F662 /* PistiTableView.swift in Sources */,
+				E35271E6365435087D146C0C /* OkeyTableView.swift in Sources */,
+				98BB4B48149F6D61884F0BEB /* TavlaTableView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

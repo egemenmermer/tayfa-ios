@@ -88,6 +88,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     @Published private(set) var watchers: [String: String] = [:]
     /// The microphone wanted for the next join this session; nil until the first join reads the saved state.
     private var desiredMicrophone: Bool?
+    /// Deafen follows the person into the next voice room (move, room switch, rejoin) like `desiredMicrophone`.
+    private var hearingCarry = HearingCarry()
     private var disconnectedInterruptionMicrophone: Bool?
     /// Sees phone and FaceTime calls, so a call that ended without an interruption-end notice is noticed.
     private let callObserver = CXCallObserver()
@@ -106,6 +108,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     override init() {
         super.init()
         playout.onActive = { [weak self] in self?.refreshAudio() }
+        GameSounds.player = { [weak self] cue in self?.playGameCue(cue) }
         handleData(topic: WatchAnnouncement.topic) { [weak self] packet in self?.receiveWatch(packet) }
         // Publication waits for the room's screen-share permission, so it is not automatic.
         BroadcastManager.shared.shouldPublishTrack = false
@@ -176,7 +179,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         guard room != nil, removed else { return }
         recovery.cancelMicrophoneRestore()
         // Avoid unexpectedly sending a conversation through the loudspeaker.
-        hearingMuted = true; screenMuted = true; refreshAudio(); muteForAudioEvent(); stopCues(); stopPreview()
+        hearingMuted = true; hearingCarry.record(true); screenMuted = true; refreshAudio(); muteForAudioEvent(); stopCues(); stopGameCues(); stopPreview()
+        onHearingChange?(true)
         audioNotice = "Kulaklık bağlantısı kesildi. Mikrofon ve sesler kapatıldı; çıkışı kontrol edip yeniden aç."
     }
     private func muteForAudioEvent() {
@@ -272,11 +276,11 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     func useAudioPreferences(origin: URL, userID: String, soundClient: APIClient) {
         preferenceScope = (origin, userID)
         audioPreferences = preferenceStore.load(origin: origin, userID: userID)
-        configuredMicrophone = nil; desiredMicrophone = nil
+        configuredMicrophone = nil; desiredMicrophone = nil; hearingCarry.reset()
         forgetPersonalSounds(); self.soundClient = soundClient
     }
     func clearAudioPreferences() {
-        preferenceScope = nil; audioPreferences = AudioPreferences(); configuredMicrophone = nil; desiredMicrophone = nil; diagnostics = MediaDiagnostics()
+        preferenceScope = nil; audioPreferences = AudioPreferences(); configuredMicrophone = nil; desiredMicrophone = nil; hearingCarry.reset(); diagnostics = MediaDiagnostics()
         forgetPersonalSounds()
     }
     private func saveAudioPreferences() {
@@ -293,13 +297,16 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         guard let current = room, connected else { if on { BroadcastManager.shared.requestStop() }; return }
         screenShareBusy = true; defer { screenShareBusy = false }
         if on {
+            // The lease and the publish fail for different reasons, so each gets its own message.
+            var stage = ScreenShareStage.lease
             do {
                 try await screenLease?(true)
                 guard room === current else { return }
+                stage = .publish
                 _ = try await current.localParticipant.setScreenShare(enabled: true)
             } catch {
                 guard room === current else { return }
-                self.error = "Ekran paylaşımı başlatılamadı. Bu odada yayın iznin olmayabilir; tekrar dene."
+                self.error = ScreenShareFailure.message(stage: stage, error: error)
                 BroadcastManager.shared.requestStop()
                 try? await screenLease?(false)
             }
@@ -313,6 +320,11 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         guard enabled != audioPreferences.roomEventSounds else { return }
         audioPreferences.roomEventSounds = enabled; saveAudioPreferences()
         if !enabled { stopCues() }
+    }
+    func setGameSounds(_ enabled: Bool) {
+        guard enabled != audioPreferences.gameSounds else { return }
+        audioPreferences.gameSounds = enabled; saveAudioPreferences()
+        if !enabled { stopGameCues() }
     }
     func setPersonalSounds(_ enabled: Bool) {
         guard enabled != audioPreferences.personalSounds else { return }
@@ -476,6 +488,31 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         if player.play() { cuePlayers.append((actor, personal, player)) }
         else if let fallback { playClassic(fallback) }
     }
+    // MARK: Game table cues
+    /// Synthesized table cues (`GameCueTone`, desktop recipes) for the games of this voice room, heard only here.
+    /// They play like the room cues: an `AVAudioPlayer` inside the call session LiveKit owns (no category or
+    /// activation change, no second audio engine), so they mix with the voices instead of interrupting them.
+    /// Outside a connected room nothing plays (an app-default session would stop other apps' audio).
+    private var gameCuePlayers: [AVAudioPlayer] = []
+    private var gameCueGate = GameCueGate()
+    private var gameCueData: [GameCue: Data] = [:]
+    private var gameCuesAudible: Bool {
+        connected && audioPreferences.gameSounds && audioPreferences.soundEffectsLevel > 0
+            && !hearingMuted && !audioInterrupted && !audioNeedsResume
+    }
+    func playGameCue(_ cue: GameCue) {
+        gameCuePlayers.removeAll { !$0.isPlaying }
+        guard gameCuesAudible, gameCuePlayers.count < 4, gameCueGate.admit(cue, now: Self.cueNow()) else { return }
+        let data = gameCueData[cue] ?? GameCueTone.wav(cue)
+        gameCueData[cue] = data
+        guard let player = try? AVAudioPlayer(data: data) else { return }
+        player.volume = Float(GameCueTone.gain * audioPreferences.soundEffectsLevel)
+        if player.play() { gameCuePlayers.append(player) }
+    }
+    private func stopGameCues() {
+        for player in gameCuePlayers { player.stop() }
+        gameCuePlayers = []; gameCueGate.reset()
+    }
     /// Stops what is playing: everything, only personal clips, or one person's.
     private func stopCuePlayers(personalOnly: Bool = false, actor: String? = nil) {
         cuePlayers.removeAll { entry in
@@ -607,6 +644,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         guard recovery.owns(ticket) else { throw CancellationError() }
         _ = try EndpointPolicy.media(grant.serverUrl)
         self.soundChannel = try soundChannel.map(EndpointPolicy.id)
+        // Before the room exists, so the join cue and the first remote tracks already respect it.
+        hearingMuted = hearingCarry.resolve(voiceRoom: soundChannel != nil)
         let room = Room(delegate: self, roomOptions: RoomOptions(
             defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(dimensions: .h1080_169, fps: 15, useBroadcastExtension: true),
             defaultAudioCaptureOptions: captureOptions(), adaptiveStream: true, dynacast: true))
@@ -625,6 +664,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             try await room.connect(url: grant.serverUrl, token: grant.token, connectOptions: ConnectOptions(autoSubscribe: false, reconnectAttempts: 5, reconnectAttemptDelay: 1, reconnectMaxDelay: 7, socketConnectTimeoutInterval: 15, primaryTransportConnectTimeout: 20))
             guard self.room === room, recovery.owns(ticket), !Task.isCancelled else { await room.disconnect(); throw CancellationError() }
             connectTimeout?.cancel(); recovery.connected(); status = "Bağlandı"; updateRoute(); refresh(room)
+            // The room is told only now that it is up; the person never has to deafen again after a move.
+            if hearingMuted { refreshAudio(); stopCues(); onHearingChange?(true) }
         } catch {
             if self.room === room { await disconnect(failure: "Bağlantı kurulamadı. Odaya tekrar katıl.") }
             throw error
@@ -679,21 +720,31 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     /// keeps the current state; the first join of a session uses the saved choice, which starts muted.
     func microphoneForJoin() -> Bool {
         if connected, !microphoneBusy { desiredMicrophone = !muted }
+        // A deafened listener does not talk (see `toggleMicrophone`), so the join must not try to open the microphone.
+        if hearingCarry.deafened { return false }
         return desiredMicrophone ?? audioPreferences.microphoneOn
     }
-    var joinsWithMicrophone: Bool { connected ? !muted : desiredMicrophone ?? audioPreferences.microphoneOn }
+    var joinsWithMicrophone: Bool { hearingCarry.deafened ? false : connected ? !muted : desiredMicrophone ?? audioPreferences.microphoneOn }
+    /// The mute direction needs only a room (also while LiveKit reconnects); turning the microphone on needs a connection.
+    var canToggleMicrophone: Bool {
+        VoiceControlPolicy.canToggleMicrophone(muted: muted, hasRoom: room != nil, connected: connected, busy: microphoneBusy, audioBlocked: audioInterrupted || audioNeedsResume)
+    }
     /// `remember: false` for automatic changes (deafen, restoring a join) that must not become the saved choice.
     func toggleMicrophone(remember: Bool = true) async {
         microphoneIntentRevision &+= 1
         recovery.cancelMicrophoneRestore()
         audioEventEpoch.advance()
-        guard let room, connected, !microphoneBusy, !audioInterrupted, !audioNeedsResume else { return }
+        guard let room, !microphoneBusy, !audioInterrupted, !audioNeedsResume else { return }
+        // Muting is local and allowed while reconnecting; enabling needs the connection.
+        guard connected || !muted else { return }
         microphoneBusy = true; let ticket = recovery.ticket
         defer { if recovery.owns(ticket) { microphoneBusy = false } }
         await audioActionTask?.value
         guard self.room === room, recovery.owns(ticket), recovery.canUseAudio else { return }
         let audioTicket = audioEventEpoch.advanceForRead()
         let enable = muted
+        // `muted` may have flipped while waiting for a pending audio action; enabling still needs the connection.
+        if enable && !connected { return }
         // As on desktop: a deafened listener does not talk; hearing comes back first.
         if enable && hearingMuted { error = "Mikrofonu açmak için önce oda sesini aç."; return }
         if enable {
@@ -706,6 +757,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             if self.room === room {
                 if enable && (!recovery.canUseAudio || !audioEventEpoch.owns(audioTicket)) { _ = try await room.localParticipant.setMicrophone(enabled: false) }
                 error = nil; configuredMicrophone = nil; updateRoute(); refresh(room)
+                // `refresh` waits for a live connection; a mute done while reconnecting is reflected right away.
+                if !enable, !connected { muted = true }
                 desiredMicrophone = !muted
                 if remember, audioPreferences.microphoneOn == muted { audioPreferences.microphoneOn = !muted; saveAudioPreferences() }
             }
@@ -715,6 +768,10 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
                 self.diagnostics.record(.microphoneFailed)
                 if enable && (!recovery.canUseAudio || !audioEventEpoch.owns(audioTicket)) {
                     failConnection(room, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.")
+                } else if !enable {
+                    // A microphone that may still be live while the person asked for silence is not left running.
+                    if connected { self.error = "Mikrofon kapatılamadı. Tekrar dene."; refresh(room) }
+                    else { failConnection(room, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.") }
                 } else { self.error = "Mikrofon açılamadı. Dinlemeye devam edebilirsin."; refresh(room) }
             }
         }
@@ -722,7 +779,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     /// Called with the new deafen state so the room can be told; the toggle never waits for it.
     var onHearingChange: ((Bool) -> Void)?
     func toggleHearing() {
-        hearingMuted.toggle(); refreshAudio(); onHearingChange?(hearingMuted)
+        hearingMuted.toggle(); hearingCarry.record(hearingMuted); refreshAudio(); onHearingChange?(hearingMuted)
         if hearingMuted { stopCues() }
         // Deafening also mutes the microphone (desktop and Discord do the same); undeafening keeps it muted.
         if hearingMuted && !muted { Task { await toggleMicrophone(remember: false) } }

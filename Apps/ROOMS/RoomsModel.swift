@@ -1,6 +1,7 @@
 import UIKit
 import Foundation
 import Combine
+import Network
 import RoomsCore
 
 @MainActor final class RoomsModel: ObservableObject {
@@ -99,6 +100,16 @@ import RoomsCore
     @Published private(set) var active: VoiceRoom?
     @Published private(set) var busy = false
     @Published private(set) var restoring = true
+    /// Set when a saved session could not be restored because the server was unreachable (B5).
+    /// The token stays saved; `RestoreRetryView` offers a retry instead of the login form.
+    @Published private(set) var restoreProblem: String?
+    @Published private(set) var restoreRetrying = false
+    private var restoreFailures = 0
+    private var restoreTimer: Task<Void, Never>?
+    private var pendingLogoutTask: Task<Void, Never>?
+    private let pathMonitor = NWPathMonitor()
+    private var pathSignature: String?
+    private var pathDebounce: Task<Void, Never>?
     @Published private(set) var listStatus = ""
     @Published var error: String?
     @Published var showingMessages = false
@@ -157,21 +168,50 @@ import RoomsCore
     }
     func restore() async {
         defer { restoring = false }
+        startNetworkMonitor(); retryPendingLogouts()
+        await attemptRestore()
+    }
+    /// "Tekrar dene" on the restore screen, and the automatic retries (timer, network, foreground).
+    func retryRestore() async {
+        guard restoreProblem != nil, user == nil, !restoreRetrying, !busy else { return }
+        await attemptRestore()
+    }
+    private func attemptRestore() async {
+        restoreTimer?.cancel()
         let ticket = sessionEpoch.advance()
+        restoreRetrying = true
+        defer { if sessionEpoch.owns(ticket) { restoreRetrying = false } }
         do {
-            guard let token = try SessionVault.read(origin: origin) else { return }
+            guard let token = try SessionVault.read(origin: origin) else { restoreProblem = nil; return }
             let api = APIClient(origin: origin, token: token)
             let user = try await api.user()
             guard sessionEpoch.owns(ticket) else { return }
             accept(api: api, token: token, user: user)
         } catch {
             guard sessionEpoch.owns(ticket) else { return }
-            if error as? RoomsError == .expired { SessionVault.clear() }
+            switch SessionRestoreOutcome(error: error) {
+            case .signedOut:
+                SessionVault.clear(); restoreProblem = nil; restoreFailures = 0
+            case .retry:
+                restoreFailures += 1; restoreProblem = error.localizedDescription
+                scheduleRestoreRetry()
+            }
+            // Until RootView shows RestoreRetryView, the login form keeps explaining the failure.
             self.error = error.localizedDescription
+        }
+    }
+    private func scheduleRestoreRetry() {
+        restoreTimer?.cancel()
+        let delay = ReconnectBackoff.delay(failures: restoreFailures, cap: ReconnectBackoff.restoreCap, jitter: Double.random(in: 0...1))
+        restoreTimer = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+            guard let self, self.foreground else { return }
+            await self.retryRestore()
         }
     }
     func login(email: String, password: String) async {
         guard !busy else { return }; busy = true; error = nil
+        restoreTimer?.cancel(); restoreProblem = nil; restoreRetrying = false
         let ticket = sessionEpoch.advance()
         defer { if sessionEpoch.owns(ticket) { busy = false } }
         do {
@@ -183,6 +223,8 @@ import RoomsCore
                 return (api, token, try await api.user())
             }
             guard sessionEpoch.owns(ticket) else { return }
+            // A saved session that could not be restored is replaced: end it on the server later.
+            if let old = try? SessionVault.read(origin: origin), old != token { try? SessionVault.addPendingLogout(token: old, origin: origin) }
             try SessionVault.save(token, origin: origin); accept(api: api, token: token, user: user)
         } catch { if sessionEpoch.owns(ticket) { self.error = error.localizedDescription } }
     }
@@ -191,6 +233,7 @@ import RoomsCore
         chat.configure(transport: api, userID: user.id, userName: user.name)
         calls.configure(api: api, userID: user.id, account: origin.absoluteString + "|" + user.id)
         cinema.configure(api: api, me: user.id)
+        restoreTimer?.cancel(); restoreProblem = nil; restoreFailures = 0; retryPendingLogouts()
         self.api = api; self.token = token; self.user = user; pushSubscription = nil; PushNotifications.shared.model = self; Task { await PushNotifications.shared.enable() }; communitySelection = navigationStore.load(origin: origin, owner: user.id); communitySelection.messages = false; error = nil; retryList()
         Task { [weak self] in
             guard let branding = try? await api.musicBranding(), let self, self.api === api else { return }
@@ -457,21 +500,81 @@ import RoomsCore
         user = updated
         chat.refreshProfile(updated.id)
     }
+    /// Signs out at once, also offline (B4). The token is kept as a pending logout until the server
+    /// confirms the session (and with it the push subscription) is gone; until then this device
+    /// stops taking alerts.
     func logout() async {
-        let api = api
-        await clearSession(); await api?.logout()
+        let token = self.token ?? (try? SessionVault.read(origin: origin))
+        if let token { try? SessionVault.addPendingLogout(token: token, origin: origin) }
+        restoreTimer?.cancel(); restoreProblem = nil; restoreFailures = 0; error = nil
+        await clearSession(); restoreRetrying = false
+        guard let token else { return }
+        let ticket = sessionEpoch.advanceForRead()
+        // A new sign-in during the attempt keeps its alerts; the old token stays queued either way.
+        if !(await endSession(PendingLogout(origin: origin.absoluteString, token: token))), user == nil, sessionEpoch.owns(ticket) {
+            PushNotifications.shared.signedOut(stopDelivery: true)
+        }
+    }
+    /// True when the server ended the session or it can never be used again; the entry is then dropped.
+    private func endSession(_ item: PendingLogout) async -> Bool {
+        guard let origin = try? EndpointPolicy.origin(item.origin) else { SessionVault.removePendingLogout(item); return true }
+        let api = APIClient(origin: origin, token: item.token)
+        do { try await withTimeout(seconds: 15) { try await api.endSession() } }
+        catch { guard PendingLogout.isFinished(after: error) else { return false } }
+        SessionVault.removePendingLogout(item); return true
+    }
+    /// Retries sessions signed out while offline: on launch, sign-in, foreground and network return.
+    private func retryPendingLogouts() {
+        guard pendingLogoutTask == nil else { return }
+        let queue = SessionVault.pendingLogouts()
+        guard !queue.isEmpty else { return }
+        pendingLogoutTask = Task { [weak self] in
+            for item in queue.items { guard let self else { return }; _ = await self.endSession(item) }
+            self?.pendingLogoutTask = nil
+        }
+    }
+    private func startNetworkMonitor() {
+        guard pathMonitor.pathUpdateHandler == nil else { return }
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let signature = path.status == .satisfied ? "up:" + (path.availableInterfaces.first.map { "\($0.type)" } ?? "") : "down"
+            Task { @MainActor [weak self] in self?.networkChanged(signature) }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "com.egemenmermer.rooms.network"))
+    }
+    /// Network back or the primary interface changed: reconnect the gateway now instead of waiting
+    /// for its backoff, retry an offline restore, and finish pending sign-outs (B5, B6).
+    private func networkChanged(_ signature: String) {
+        let previous = pathSignature; pathSignature = signature
+        guard let previous, previous != signature, signature != "down" else { return }
+        // Down -> up: only a gateway that is not live reconnects. A new primary interface usually
+        // strands the old socket, so it reconnects even if it still looks live.
+        let interfaceChanged = previous != "down"
+        pathDebounce?.cancel()
+        pathDebounce = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            guard let self, self.foreground else { return }
+            self.retryPendingLogouts()
+            if self.user != nil { self.gateway.reconnectNow(force: interfaceChanged) }
+            else { await self.retryRestore() }
+        }
     }
     private func expire() async { await clearSession(); error = RoomsError.expired.localizedDescription }
     private func clearSession() async {
         await calls.reset()
         clearCommunityIcons(); communities = []; communityServers = []; communitySelection = .init(); conversationPath = []; onlineUsers = []; scrollMemory = .init()
+        // B8: nothing of the previous account survives the sign-out.
+        roomNoticeTimer?.cancel(); roomNotice = nil; listStatus = ""; pushSubscription = nil
+        djName = "DJ"; djPoster = nil; if let animation = djAnimation { FileStager.remove(animation) }; djAnimation = nil
+        PushNotifications.shared.signedOut(stopDelivery: false)
         sessionEpoch.advance(); showingMessages = false; initialChatChannelID = nil; cinema.reset(); chat.reset(); gateway.stop(); polling?.cancel(); SessionVault.clear(); token = nil; user = nil; rooms = []; candidates = []; voiceServers = [:]; directory = [:]
         leave(); api = nil; await roomTask?.value; if user == nil { media.clearAudioPreferences() }
     }
     func setForeground(_ value: Bool) {
         guard foreground != value else { return }
         foreground = value; media.setForeground(value); chat.setForeground(value); calls.setForeground(value); cinema.setForeground(value)
+        if value { retryPendingLogouts() }
         if value, user != nil { retryList(); Task { await validateActive() } }
+        else if value { Task { await retryRestore() } }
         else { gateway.stop(); polling?.cancel() }
     }
 }

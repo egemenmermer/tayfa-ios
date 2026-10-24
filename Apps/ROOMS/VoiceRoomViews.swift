@@ -15,7 +15,7 @@ struct VoiceDockView: View {
                         Text(room.name).font(.subheadline.weight(.semibold)).lineLimit(1)
                     }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel("\(room.name) odasını aç. \(media.status)")
-                RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.connected || media.microphoneBusy || media.audioInterrupted || media.audioNeedsResume)
+                RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.canToggleMicrophone)
                 RoomIconControl(label: media.camera.isOn ? "Kamerayı kapat" : "Kamerayı aç", icon: media.camera.isOn ? "video.fill" : "video.slash", selected: media.camera.isOn) { Task { await media.toggleCamera() } }.disabled(!media.connected || media.camera.busy || media.audioInterrupted)
                 if media.canChooseReceiver {
                     RoomIconControl(label: media.speakerPreferred ? "Ahizeye geç" : "Hoparlöre geç", icon: media.speakerPreferred ? "speaker.wave.3.fill" : "iphone", selected: media.speakerPreferred) { media.setSpeakerPreferred(!media.speakerPreferred) }
@@ -46,7 +46,7 @@ struct RoomBottomControls: View {
     var body: some View {
         HStack(spacing: 9) {
             RoomIconControl(label: media.camera.isOn ? "Kamerayı kapat" : "Kamerayı aç", icon: media.camera.isOn ? "video.fill" : "video.slash", selected: media.camera.isOn) { Task { await media.toggleCamera() } }.disabled(!media.connected || media.camera.busy || media.audioInterrupted)
-            RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.connected || media.microphoneBusy || media.audioInterrupted || media.audioNeedsResume)
+            RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.canToggleMicrophone)
             RoomIconControl(label: media.hearingMuted ? "Oda sesini aç" : "Oda sesini kapat", icon: media.hearingMuted ? "headphones.slash" : "headphones", selected: !media.hearingMuted) { media.toggleHearing() }.disabled(!media.connected)
             RoomIconControl(label: media.sharingScreen ? "Ekran paylaşımını durdur" : "Ekranımı paylaş", icon: media.sharingScreen ? "rectangle.on.rectangle.slash" : "rectangle.on.rectangle", selected: media.sharingScreen) {
                 if media.sharingScreen { media.stopScreenShare() } else { media.startScreenShare() }
@@ -95,6 +95,7 @@ struct VoiceRoomScreen: View {
     @State private var watch: WatchTogetherModel?
     @State private var polls = false
     @State private var whiteboard = false
+    @State private var games = false
     private var shownPeople: [RoomPerson] {
         if let focusedID { return media.people.filter { $0.id == focusedID } }
         return Array(media.people.dropFirst(page * 6).prefix(6))
@@ -133,7 +134,8 @@ struct VoiceRoomScreen: View {
             .sheet(isPresented: $polls) { if let watch { PollsView(watch: watch) } }
             .fullScreenCover(isPresented: $whiteboard) { if let watch { WhiteboardView(watch: watch, media: media, roomName: model.active?.name ?? "Oda") } }
             .task(id: model.active?.id) { watch?.stop(); watch = model.active.flatMap { model.watchTogether(roomID: $0.id) }; watch?.start() }
-            .onDisappear { if !whiteboard { watch?.stop() } }
+            .fullScreenCover(isPresented: $games) { if let watch { GamesLobbyView(watch: watch, chat: chat, roomName: model.active?.name ?? "Oda") } }
+            .onDisappear { if !whiteboard && !games { watch?.stop() } }
             .fullScreenCover(isPresented: $expanded) { FullScreenStreamView(model: model, media: media, cameraPeople: strip ? shownPeople : [], onCameraFocus: { focusedID = $0; expanded = false }) { expanded = false } }
             .onAppear { updateCameraSubscriptions() }
             .onChange(of: visibleIDs) { _, _ in updateCameraSubscriptions() }
@@ -159,10 +161,11 @@ struct VoiceRoomScreen: View {
         Menu {
             Button("Anketler", systemImage: "chart.bar.doc.horizontal") { polls = true }
             Button("Beyaz tahta", systemImage: "scribble.variable") { whiteboard = true }
+            Button("Oyunlar", systemImage: "suit.club.fill") { games = true }
         } label: {
             Image(systemName: "square.grid.2x2").font(.system(size: 19, weight: .semibold)).foregroundStyle(Color.primary).frame(width: 44, height: 46).contentShape(Rectangle())
                 .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.1)))
-        }.accessibilityLabel("Etkinlikler: anketler ve beyaz tahta")
+        }.accessibilityLabel("Etkinlikler: anketler, beyaz tahta ve oyunlar")
     }
     @ViewBuilder private var notices: some View {
         if let notice = model.roomNotice { Notice(text: notice) }
