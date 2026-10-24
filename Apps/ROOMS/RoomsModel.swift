@@ -507,9 +507,11 @@ import RoomsCore
         let token = self.token ?? (try? SessionVault.read(origin: origin))
         if let token { try? SessionVault.addPendingLogout(token: token, origin: origin) }
         restoreTimer?.cancel(); restoreProblem = nil; restoreFailures = 0; error = nil
-        await clearSession()
+        await clearSession(); restoreRetrying = false
         guard let token else { return }
-        if !(await endSession(PendingLogout(origin: origin.absoluteString, token: token))) {
+        let ticket = sessionEpoch.advanceForRead()
+        // A new sign-in during the attempt keeps its alerts; the old token stays queued either way.
+        if !(await endSession(PendingLogout(origin: origin.absoluteString, token: token))), user == nil, sessionEpoch.owns(ticket) {
             PushNotifications.shared.signedOut(stopDelivery: true)
         }
     }
