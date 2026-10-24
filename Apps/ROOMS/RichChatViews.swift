@@ -43,7 +43,44 @@ struct MessageCardView: View {
     /// Opens the full reaction picker; nil hides "Diğer tepkiler".
     var react: ((ChatMessage) -> Void)? = nil
     private var busy: Bool { chat.actionBusy.contains(message.id) }
+    @ObservedObject private var safety = SafetyCenter.shared
+    @State private var revealed = false
+    @State private var confirmBlock = false
+    @State private var reporting = false
+    @State private var notice: SafetyNotice?
+    private var hidden: Bool { message.authorID != currentUserID && safety.isBlocked(message.authorID) && !revealed }
     var body: some View {
+        Group {
+            if hidden {
+                if grouped { Color.clear.frame(height: 0).accessibilityHidden(true) }
+                else {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.slash").accessibilityHidden(true)
+                        Text("Engellediğin kullanıcının mesajı gizlendi")
+                        Spacer(minLength: 0)
+                        Button("Göster") { revealed = true }.buttonStyle(.bordered).controlSize(.small)
+                    }.font(.caption).foregroundStyle(.secondary).frame(minHeight: 44).accessibilityIdentifier("chat.message.\(message.id)")
+                }
+            } else { card }
+        }
+        .task(id: "\(currentUserID)-\(message.channelID)-\(chat.authorityGeneration)") {
+            safety.attach(SafetyClient.make); safety.use(userID: currentUserID)
+            await safety.ensureLoaded()
+            await safety.refreshModeration(channelID: message.channelID, generation: chat.authorityGeneration)
+        }
+        .confirmationDialog("\(message.authorName) engellensin mi?", isPresented: $confirmBlock, titleVisibility: .visible) {
+            Button("Engelle", role: .destructive) { Task { notice = await SafetyActions.block(message.authorID, name: message.authorName) } }
+            Button("Vazgeç", role: .cancel) {}
+        } message: { Text("Mesajları bu telefonda gizlenir ve sana özel mesaj gönderemez. Engeli Arkadaşlar sayfasından kaldırabilirsin.") }
+        .sheet(isPresented: $reporting) {
+            ReportSheet(title: "Mesajı bildir", subject: "\(message.authorName): " + String(chat.displayContent(message).prefix(120))) { reason, note in
+                try await safety.reportMessage(message.id, reason: reason, context: note)
+            }
+        }
+        .alert(notice?.title ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) { Button("Tamam") {} } message: { Text(notice?.message ?? "") }
+    }
+    private var copyLink: URL? { MessageLinks.first(in: chat.displayContent(message)) }
+    private var card: some View {
         HStack(alignment: .top, spacing: 11) {
             if grouped { Color.clear.frame(width: 44, height: 1).accessibilityHidden(true) }
             else { Button { openProfile(message.authorID) } label: { ChatAvatarView(chat: chat, userID: message.authorID, name: message.authorName, size: 34).frame(width: 44, height: 44, alignment: .top) }.buttonStyle(.plain).accessibilityLabel("\(message.authorName) profilini aç") }
@@ -58,7 +95,7 @@ struct MessageCardView: View {
                 }
                 ForEach(message.replyIDs, id: \.self) { id in
                     Button { openReply(id, message.channelID) } label: {
-                        Label(chat.timeline.message(id).map { $0.authorName + ": " + String(chat.displayContent($0).prefix(100)) } ?? "Yanıtlanan mesajı aç", systemImage: "arrowshape.turn.up.left")
+                        Label(chat.timeline.message(id).map { safety.isBlocked($0.authorID) ? "Engellenen kullanıcının mesajı" : $0.authorName + ": " + String(chat.displayContent($0).prefix(100)) } ?? "Yanıtlanan mesajı aç", systemImage: "arrowshape.turn.up.left")
                             .font(.caption).lineLimit(2).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     }.buttonStyle(.plain).foregroundStyle(.secondary)
                 }
@@ -109,7 +146,16 @@ struct MessageCardView: View {
                 if let react { Button("Diğer tepkiler…", systemImage: "face.smiling") { react(message) } }
             }
             Button("Profili görüntüle", systemImage: "person.crop.circle") { openProfile(message.authorID) }
+            if !message.content.isEmpty { Button("Kopyala", systemImage: "doc.on.doc") { UIPasteboard.general.string = chat.displayContent(message) } }
+            if let copyLink { Button("Bağlantıyı kopyala", systemImage: "link") { UIPasteboard.general.url = copyLink } }
             if message.authorID == currentUserID { Button("Düzenle", systemImage: "pencil") { edit(message) }.disabled(!chat.access.send); Button("Sil", systemImage: "trash", role: .destructive) { delete(message) } }
+            else {
+                // ManageMessages (desktop `moderates`); the server still rechecks the delete.
+                if safety.canModerate(message.channelID) { Button("Sil", systemImage: "trash", role: .destructive) { delete(message) } }
+                Button("Mesajı bildir", systemImage: "flag") { reporting = true }
+                if safety.isBlocked(message.authorID) { Button("Engeli kaldır", systemImage: "person.crop.circle.badge.checkmark") { Task { notice = await SafetyActions.unblock(message.authorID, name: message.authorName) } } }
+                else { Button("Kullanıcıyı engelle", systemImage: "person.slash", role: .destructive) { confirmBlock = true } }
+            }
         }
     }
 }
@@ -154,6 +200,10 @@ struct ProfileView: View {
     @State private var profile: UserProfile?
     @State private var error: String?
     @State private var retry = UUID()
+    @ObservedObject private var safety = SafetyCenter.shared
+    @State private var confirmBlock = false
+    @State private var reporting = false
+    @State private var notice: SafetyNotice?
     var body: some View {
         NavigationStack {
             Form {
@@ -165,12 +215,28 @@ struct ProfileView: View {
                         if let status = profile.status, !status.isEmpty { Text(status) }
                     }
                     if let bio = profile.bio, !bio.isEmpty { Section("Hakkında") { Text(verbatim: bio).textSelection(.enabled) } }
-                    if userID != currentUserID { Section { Button("Mesaj gönder", systemImage: "text.bubble") { dismiss(); message() }.frame(minHeight: 44) } }
+                    if userID != currentUserID {
+                        Section { Button("Mesaj gönder", systemImage: "text.bubble") { dismiss(); message() }.frame(minHeight: 44) }
+                        Section {
+                            if safety.isBlocked(userID) { Button("Engeli kaldır", systemImage: "person.crop.circle.badge.checkmark") { Task { notice = await SafetyActions.unblock(userID, name: profile.name) } }.frame(minHeight: 44) }
+                            else { Button("Kullanıcıyı engelle", systemImage: "person.slash", role: .destructive) { confirmBlock = true }.frame(minHeight: 44) }
+                            Button("Kullanıcıyı bildir", systemImage: "flag", role: .destructive) { reporting = true }.frame(minHeight: 44)
+                        } footer: { Text("Bildirimler sunucu yöneticilerine iletilir.") }
+                    }
                 } else if let error { Section { Text(error); Button("Tekrar dene") { retry = UUID() } } }
                 else { ProgressView("Profil yükleniyor…") }
             }.navigationTitle("Profil").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Kapat") { dismiss() } } }
                 .onChange(of: chat.authorityGeneration) { _, _ in profile = nil; retry = UUID() }
+                .confirmationDialog("\(profile?.name ?? "Bu kullanıcı") engellensin mi?", isPresented: $confirmBlock, titleVisibility: .visible) {
+                    Button("Engelle", role: .destructive) { Task { notice = await SafetyActions.block(userID, name: profile?.name ?? "Kullanıcı") } }
+                    Button("Vazgeç", role: .cancel) {}
+                } message: { Text("Mesajları bu telefonda gizlenir ve sana özel mesaj gönderemez. Engeli Arkadaşlar sayfasından kaldırabilirsin.") }
+                .sheet(isPresented: $reporting) {
+                    ReportSheet(title: "Kullanıcıyı bildir", subject: profile?.name ?? "Kullanıcı") { reason, note in try await safety.reportUser(userID, reason: reason, context: note) }
+                }
+                .alert(notice?.title ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) { Button("Tamam") {} } message: { Text(notice?.message ?? "") }
+                .task { safety.attach(SafetyClient.make); await safety.ensureLoaded() }
                 .task(id: retry) {
                     profile = nil; error = nil
                     do { let value = try await chat.fetchProfile(userID); if !Task.isCancelled { profile = value } }
@@ -384,4 +450,92 @@ struct AttachmentComposer<Composer: View>: View {
     }
     private func cancelPreparation() { preparation?.cancel(); preparation = nil; preparationID = UUID(); preparing = false; photo = nil }
     private func captureScope() { importingSession = chat.sessionGeneration; importingChannel = chat.selected?.id ?? ""; error = nil }
+}
+
+
+// MARK: Safety helpers (App Store guideline 1.2)
+
+/// Builds the client the safety calls use from the same Keychain session the app signed in with.
+enum SafetyClient {
+    static func make() -> APIClient? {
+        guard let configured = Bundle.main.object(forInfoDictionaryKey: "ROOMSAPIOrigin") as? String,
+              let origin = try? EndpointPolicy.origin(configured),
+              let token = try? SessionVault.read(origin: origin) else { return nil }
+        return APIClient(origin: origin, token: token)
+    }
+}
+
+struct SafetyNotice: Identifiable { let id = UUID(); let title: String; let message: String }
+
+/// Block and unblock with a result the person can read.
+@MainActor enum SafetyActions {
+    static func block(_ id: String, name: String) async -> SafetyNotice {
+        do { try await SafetyCenter.shared.block(id); return SafetyNotice(title: "Engellendi", message: "\(name) engellendi. Mesajları gizlendi.") }
+        catch { return SafetyNotice(title: "Engellenemedi", message: failure(error)) }
+    }
+    static func unblock(_ id: String, name: String) async -> SafetyNotice {
+        do { try await SafetyCenter.shared.unblock(id); return SafetyNotice(title: "Engel kaldırıldı", message: "\(name) artık engelli değil.") }
+        catch { return SafetyNotice(title: "Engel kaldırılamadı", message: failure(error)) }
+    }
+    /// 403/404 map to "no access to this room" in the shared client; these calls are not about rooms.
+    static func failure(_ error: Error) -> String {
+        if let known = error as? RoomsError {
+            switch known {
+            case .denied: return "Bu işlem için iznin yok ya da sunucu bu işlemi desteklemiyor."
+            case .rateLimited: return "Çok sık denedin. Biraz bekleyip tekrar dene."
+            default: return known.localizedDescription
+            }
+        }
+        return "İşlem tamamlanamadı. Bağlantını kontrol edip tekrar dene."
+    }
+}
+
+enum MessageLinks {
+    /// The first http(s) link in a message, for "Bağlantıyı kopyala".
+    static func first(in text: String) -> URL? {
+        guard text.contains("http"), let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        return detector.matches(in: text, range: range).lazy.compactMap(\.url).first { $0.scheme == "http" || $0.scheme == "https" }
+    }
+}
+
+/// Reason and optional note for a report; `submit` throws when the server refuses it.
+struct ReportSheet: View {
+    let title: String
+    let subject: String
+    let submit: (SafetyReportReason, String) async throws -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var reason = SafetyReportReason.spam
+    @State private var note = ""
+    @State private var sending = false
+    @State private var sent = false
+    @State private var error: String?
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Bildirilen") { Text(subject).lineLimit(3) }
+                Section("Neden?") {
+                    Picker("Neden", selection: $reason) { ForEach(SafetyReportReason.allCases, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.inline).labelsHidden()
+                }
+                Section { TextField("Eklemek istediğin bir not (isteğe bağlı)", text: $note, axis: .vertical).lineLimit(3...6).onChange(of: note) { _, value in if value.count > SafetyPolicy.contextLimit { note = String(value.prefix(SafetyPolicy.contextLimit)) } } } footer: { Text("Bildirim sunucu yöneticilerine iletilir.") }
+                if sent { Section { Label("Bildirimin gönderildi. Teşekkürler.", systemImage: "checkmark.circle").foregroundStyle(.green) } }
+                else if let error { Section { Text(error).foregroundStyle(.red) } }
+            }.navigationTitle(title).navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button(sent ? "Kapat" : "Vazgeç") { dismiss() }.disabled(sending) }
+                    if !sent {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(sending ? "Gönderiliyor…" : "Gönder") {
+                                sending = true; error = nil
+                                Task {
+                                    do { try await submit(reason, note); sent = true }
+                                    catch { self.error = SafetyActions.failure(error) }
+                                    sending = false
+                                }
+                            }.disabled(sending)
+                        }
+                    }
+                }
+        }.interactiveDismissDisabled(sending)
+    }
 }
