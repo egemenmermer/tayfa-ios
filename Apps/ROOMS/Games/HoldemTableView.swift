@@ -23,7 +23,7 @@ struct HoldemTableView: View {
         // `view(as:)` re-encodes the view: read it once per render.
         let extras = game.view(as: HoldemViewExtras.self) ?? .empty
         VStack(spacing: 0) {
-            table(extras).frame(minHeight: 280, maxHeight: .infinity)
+            table(extras).frame(minHeight: 230, maxHeight: .infinity)
             bottomPanel(extras).layoutPriority(1)
         }
         .sheet(isPresented: $raiseOpen) {
@@ -60,7 +60,8 @@ struct HoldemTableView: View {
         GeometryReader { geo in
             let size = geo.size
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            let radius = CGSize(width: max(60, size.width / 2 - 46), height: max(80, size.height / 2 - 50))
+            // Seat chips are about 76 × 64 pt; leave room for half a chip plus the bubble above the top seat.
+            let radius = CGSize(width: max(60, size.width / 2 - 40), height: max(70, size.height / 2 - 48))
             let own = context.mySeat?.seat
             let capacity = min(9, max(2, game.capacity))
             let bubbles = extras.lastActions(stage: hand?.stage ?? "")
@@ -106,6 +107,8 @@ struct HoldemTableView: View {
                     .position(point(number, 1))
                 }
             }
+            // Sizes are tied to the oval's geometry; text in the bottom panel keeps scaling with Dynamic Type.
+            .dynamicTypeSize(...DynamicTypeSize.large)
             .animation(reduceMotion ? nil : .spring(duration: 0.35), value: hand?.seats.map(\.streetBet))
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: extras.log.count)
         }
@@ -114,7 +117,7 @@ struct HoldemTableView: View {
     private func centre(_ extras: HoldemViewExtras, width: CGFloat) -> some View {
         let board = hand?.board ?? []
         let winning = hand?.winningCardIDs ?? []
-        let cardWidth = min(40, max(28, (width - 16) / 5.4))
+        let cardWidth = min(38, max(26, (width - 16) / 5.4))
         return VStack(spacing: 6) {
             if let hand {
                 Text(HoldemStreet.title(hand.stage) + (hand.ended && extras.runoutFrom != nil ? " · All-in, kalan kartlar açıldı" : ""))
@@ -362,68 +365,75 @@ private struct HoldemSeatChip: View {
     }
     private var winner: Bool { (hand?.payouts[seat.userId] ?? 0) > 0 && hand?.ended == true }
 
+    /// The line under the name: the stack (with blinds) unless something matters more (fold, all-in, result).
+    private var showsStatus: Bool { !["Masada", "Sırada", "Sıra sende"].contains(status) }
+
     var body: some View {
-        VStack(spacing: 2) {
-            ZStack {
-                if let bubble {
-                    Text(bubble.label).font(.caption2.bold()).lineLimit(1).fixedSize()
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(bubbleColor(bubble), in: Capsule())
-                        .foregroundStyle(Color.white)
-                        .id("\(bubble.street)-\(bubble.action)-\(bubble.to)")
-                        .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
-                }
-            }
-            .frame(height: 18)
-            cards
-            ZStack(alignment: .topTrailing) {
-                Group {
-                    if seat.isBotSeat {
-                        Circle().fill(Palette.raised).overlay(Image(systemName: "cpu").font(.system(size: 13))).frame(width: 30, height: 30)
-                    } else {
-                        ChatAvatarView(chat: chat, userID: seat.userId, name: seat.name, size: 30)
-                    }
-                }
-                .overlay(Circle().strokeBorder(isTurn ? Palette.accent : Color.clear, lineWidth: 3).padding(-3))
-                if dealer { marker("D", fill: Color.white, foreground: Color.black).offset(x: 10, y: -6) }
-            }
-            .opacity(seat.connected ? 1 : 0.5)
-            Text(isOwn ? "Sen" : seat.name).font(.caption2.bold()).lineLimit(1).frame(maxWidth: 80)
+        // About 64 × 76 pt so nine seats fit around a phone-sized oval; the bubble floats above without taking a row.
+        VStack(spacing: 1) {
             HStack(spacing: 3) {
-                Text(stack.formatted()).font(.caption2.monospacedDigit()).foregroundStyle(Color.white.opacity(0.85))
-                if smallBlind { marker("SB", fill: Color.blue.opacity(0.8), foreground: Color.white) }
-                if bigBlind { marker("BB", fill: Color.orange.opacity(0.9), foreground: Color.white) }
+                ZStack(alignment: .topTrailing) {
+                    Group {
+                        if seat.isBotSeat {
+                            Circle().fill(Palette.raised).overlay(Image(systemName: "cpu").font(.system(size: 12))).frame(width: 28, height: 28)
+                        } else {
+                            ChatAvatarView(chat: chat, userID: seat.userId, name: seat.name, size: 28)
+                        }
+                    }
+                    .overlay(Circle().strokeBorder(isTurn ? Palette.accent : Color.clear, lineWidth: 3).padding(-3))
+                    if dealer { marker("D", fill: Color.white, foreground: Color.black).offset(x: 8, y: -6) }
+                }
+                .opacity(seat.connected ? 1 : 0.5)
+                cards
             }
-            if status != "Masada" {
+            Text(isOwn ? "Sen" : seat.name).font(.caption2.bold()).lineLimit(1)
+            if showsStatus {
                 Text(status).font(.caption2)
-                    .foregroundStyle(winner ? Color.yellow : Color.white.opacity(0.7))
-                    .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: 88)
+                    .foregroundStyle(winner ? Color.yellow : Color.white.opacity(0.75))
+                    .lineLimit(1).minimumScaleFactor(0.6)
+            } else {
+                HStack(spacing: 2) {
+                    Text(stack.formatted()).font(.caption2.monospacedDigit()).foregroundStyle(Color.white.opacity(0.85)).lineLimit(1)
+                    if smallBlind { marker("SB", fill: Color.blue.opacity(0.8), foreground: Color.white) }
+                    if bigBlind { marker("BB", fill: Color.orange.opacity(0.9), foreground: Color.white) }
+                }
             }
         }
-        .padding(4)
+        .frame(maxWidth: 70)
+        .padding(.horizontal, 3).padding(.vertical, 3)
         .background(Color.black.opacity(isTurn ? 0.5 : 0.3), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isTurn ? Palette.accent : winner ? Color.yellow : Color.clear, lineWidth: 1.5))
         .opacity(folded ? 0.55 : 1)
+        .overlay(alignment: .top) {
+            if let bubble {
+                Text(bubble.label).font(.caption2.bold()).lineLimit(1).fixedSize()
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(bubbleColor(bubble), in: Capsule())
+                    .foregroundStyle(Color.white)
+                    .offset(y: -14)
+                    .id("\(bubble.street)-\(bubble.action)-\(bubble.to)")
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.6).combined(with: .opacity))
+            }
+        }
         .animation(reduceMotion ? nil : .spring(duration: 0.3), value: bubble)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }
 
-    /// Others' cards: backs while hidden, faces when the server reveals them at showdown. The viewer's own cards are big
-    /// at the bottom of the screen instead.
+    /// Others' cards beside the avatar: backs while hidden, faces when the server reveals them at showdown. The
+    /// viewer's own cards are big at the bottom of the screen instead.
     @ViewBuilder private var cards: some View {
         if let player, !isOwn, !folded, !player.cards.isEmpty || player.hiddenCardCount > 0 {
-            HStack(spacing: -8) {
+            HStack(spacing: -7) {
                 if !player.cards.isEmpty {
                     ForEach(player.cards) { card in
-                        GameCardView(card: card, width: 24, dimmed: !winning.isEmpty && !winning.contains(card.id))
+                        GameCardView(card: card, width: 22, dimmed: !winning.isEmpty && !winning.contains(card.id))
                             .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color.yellow, lineWidth: winning.contains(card.id) ? 1.5 : 0))
                     }
                 } else {
-                    ForEach(0..<min(2, player.hiddenCardCount), id: \.self) { _ in GameCardView(card: nil, faceDown: true, width: 20) }
+                    ForEach(0..<min(2, player.hiddenCardCount), id: \.self) { _ in GameCardView(card: nil, faceDown: true, width: 16) }
                 }
             }
-            .frame(height: 34)
         }
     }
 
