@@ -50,10 +50,47 @@ public struct PistiCaptureRecord: Decodable, Equatable, Sendable {
     }
 }
 
+/// How one side's deal points add up (`view.result.breakdown[side]`, `pistiSideBreakdown` on the server).
+public struct PistiBreakdown: Decodable, Equatable, Sendable {
+    public let aces: Int
+    public let jacks: Int
+    public let clubsTwo: Int
+    public let diamondsTen: Int
+    /// Pile size.
+    public let cards: Int
+    public let mostCards: Bool
+    public let pisti: Int
+    public let jackPisti: Int
+    /// Aces 1, jacks 1, ♣2 2, ♦10 3 (`pistiCardPoints`).
+    public var cardPoints: Int { aces + jacks + clubsTwo * 2 + diamondsTen * 3 }
+
+    public init(aces: Int, jacks: Int, clubsTwo: Int, diamondsTen: Int, cards: Int, mostCards: Bool, pisti: Int, jackPisti: Int) {
+        self.aces = aces; self.jacks = jacks; self.clubsTwo = clubsTwo; self.diamondsTen = diamondsTen
+        self.cards = cards; self.mostCards = mostCards; self.pisti = pisti; self.jackPisti = jackPisti
+    }
+    enum CodingKeys: String, CodingKey { case aces, jacks, clubsTwo, diamondsTen, cards, mostCards, pisti, jackPisti }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func number(_ key: CodingKeys) -> Int { c.soft(Int.self, key) ?? c.soft(Double.self, key).map { Int($0) } ?? 0 }
+        self.init(aces: number(.aces), jacks: number(.jacks), clubsTwo: number(.clubsTwo), diamondsTen: number(.diamondsTen),
+                  cards: number(.cards), mostCards: c.soft(Bool.self, .mostCards) ?? false, pisti: number(.pisti), jackPisti: number(.jackPisti))
+    }
+}
+
 public struct PistiResult: Decodable, Equatable, Sendable {
     /// Points per round index; in a team game both partners carry the team's points.
     public let points: [Int]
     public let winners: [Int]
+    /// Per side; nil from services before the per-card split (summary then shows the combined card points).
+    public let breakdown: [PistiBreakdown]?
+
+    enum CodingKeys: String, CodingKey { case points, winners, breakdown }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        points = try c.decode([Int].self, forKey: .points)
+        winners = c.soft([Int].self, .winners) ?? []
+        breakdown = c.soft([PistiBreakdown].self, .breakdown)
+    }
 }
 
 /// One deal of a Pişti match as the viewer may see it: `view` itself, or `view.series.previous`.
@@ -193,14 +230,26 @@ public struct PistiSideSummary: Equatable, Sendable {
     public let mostCards: Bool
     public let pisti: Int
     public let jackPisti: Int
-    /// Aces, jacks, ♣2 and ♦10 together: the deal total minus the bonuses (the view carries no split).
+    /// Aces, jacks, ♣2 and ♦10 together: from the server's split, else the deal total minus the bonuses.
     public let cardPoints: Int
     public let total: Int
+    /// The server's per-card split for this side; nil when an older service only sent the totals.
+    public var split: PistiBreakdown? = nil
 }
 
 extension PistiView {
     /// How a settled deal scored per side. `points` is `result.points` or the deal's entry of `series.rounds`.
+    /// Uses the server's per-side `result.breakdown` when it covers every side (desktop `dealSummary`); otherwise
+    /// reads the bonuses from the view and derives the card points from the total.
     public func summary(points: [Int]) -> [PistiSideSummary] {
+        if let split = result?.breakdown, split.count >= sideCount {
+            return (0..<sideCount).map { side in
+                let detail = split[side]
+                return PistiSideSummary(side: side, cards: detail.cards, mostCards: detail.mostCards, pisti: detail.pisti,
+                                        jackPisti: detail.jackPisti, cardPoints: detail.cardPoints,
+                                        total: sidePoints(points, side: side), split: detail)
+            }
+        }
         let most = capturedCounts.max() ?? 0
         let leaders = capturedCounts.filter { $0 == most }.count
         return (0..<sideCount).map { side in

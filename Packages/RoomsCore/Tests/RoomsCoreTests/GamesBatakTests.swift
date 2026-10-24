@@ -66,7 +66,7 @@ final class GamesBatakTests: XCTestCase {
          "history":[]}
         """#
         let state = try JSONDecoder().decode(GameState.self, from: Data(json.utf8))
-        XCTAssertNil(state.batak, "the strict RoomsCore view fails on trump null; that is why BatakRound exists")
+        XCTAssertNil(try XCTUnwrap(state.batak, "trump null decodes into the plain view too").trump)
         let r = try XCTUnwrap(state.batakRound)
         XCTAssertEqual(r.variant, .gommeli); XCTAssertEqual(r.playerCount(seated: 3), 3); XCTAssertEqual(r.buriedCount, 4)
         XCTAssertFalse(r.rules.noTrumpLeadUntilBroken)

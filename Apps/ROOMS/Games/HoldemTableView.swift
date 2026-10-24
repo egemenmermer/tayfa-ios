@@ -283,7 +283,7 @@ struct HoldemTableView: View {
                                   stack: hand.player(me)?.chips ?? 0, canRaise: raise != nil)
         return HStack(spacing: 8) {
             Button(role: .destructive) { context.act(.fold) } label: {
-                Text("Fold").frame(maxWidth: .infinity, minHeight: 48)
+                Text("Bırak").frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.bordered)
             .disabled(!bar.fold)
@@ -304,7 +304,7 @@ struct HoldemTableView: View {
                 raiseAmount = raise.clamp(raiseAmount == 0 ? raise.range.lowerBound : raiseAmount)
                 raiseOpen = true
             } label: {
-                Text(raise?.allInOnly == true ? "All-in…" : "Artır…").bold().frame(maxWidth: .infinity, minHeight: 48)
+                Text(raise?.allInOnly == true ? "All-in" : "Artır").bold().frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.borderedProminent)
             .foregroundStyle(Palette.canvas)

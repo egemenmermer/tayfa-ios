@@ -417,7 +417,7 @@ private struct PistiMoment: View {
 
 // MARK: - Summary and match end
 
-/// "Puan dökümü": cards, most cards, pişti, vale pişti and card points per side for one finished deal.
+/// "Puan dökümü": cards, most cards, pişti, vale pişti and card points (split per card when the server sends it) per side.
 private struct PistiSummaryGrid: View {
     let game: GameState
     let me: String
@@ -437,7 +437,14 @@ private struct PistiSummaryGrid: View {
             line("En çok kart", rows) { $0.mostCards ? "+\(PistiPoints.mostCards)" : "—" }
             line("Pişti (10)", rows) { $0.pisti > 0 ? "\($0.pisti) · +\($0.pisti * PistiPoints.pisti)" : "—" }
             line("Vale pişti (20)", rows) { $0.jackPisti > 0 ? "\($0.jackPisti) · +\($0.jackPisti * PistiPoints.jackPisti)" : "—" }
-            line("As, vale, ♣2, ♦10", rows) { "+\($0.cardPoints)" }
+            if rows.allSatisfy({ $0.split != nil }) {
+                line("As (1)", rows) { Self.cell($0.split?.aces ?? 0, 1) }
+                line("Vale (1)", rows) { Self.cell($0.split?.jacks ?? 0, 1) }
+                line("♣2 (2)", rows) { Self.cell($0.split?.clubsTwo ?? 0, 2) }
+                line("♦10 (3)", rows) { Self.cell($0.split?.diamondsTen ?? 0, 3) }
+            } else {
+                line("As, vale, ♣2, ♦10", rows) { "+\($0.cardPoints)" }
+            }
             Divider().gridCellUnsizedAxes(.horizontal)
             GridRow {
                 Text("Bu el").font(.subheadline.bold()).gridColumnAlignment(.leading)
@@ -446,6 +453,9 @@ private struct PistiSummaryGrid: View {
         }
         .font(.caption)
     }
+
+    /// "2 · +2", or "—" when the side took none (desktop `splitCell`).
+    private static func cell(_ count: Int, _ value: Int) -> String { count > 0 ? "\(count) · +\(count * value)" : "—" }
 
     private func line(_ label: String, _ rows: [PistiSideSummary], _ value: @escaping (PistiSideSummary) -> String) -> some View {
         GridRow {

@@ -577,32 +577,35 @@ public struct BatakHandView: Codable, Equatable, Sendable {
     public let bid: Int
     public let bids: [Int]
     public let bidder: Int
-    /// The server reports `spades` before the trump is chosen; use `trumpKnown`.
-    public let trump: CardSuit
+    /// `nil` while bidding and choosing (current services send `null`); older services sent `spades` there, so
+    /// read it through `knownTrump`.
+    public let trump: CardSuit?
     public let tricks: [Int]
     public let trick: [BatakPlay]
     public let scores: [Int]
     public let completedTricks: [BatakTrick]
     public let hands: [BatakHandSlot]
     public let buriedCount: Int
+    /// K1 state and house rules; absent on older services (K1 on, trump not broken).
+    public let trumpBroken: Bool?
+    public let rules: [String: JSONValue]?
     public var trumpKnown: Bool { variant == .kozMaca || ["bury", "playing", "ended"].contains(stage) }
+    /// The chosen trump, never one the bidder has not picked yet (Koz Maça is always spades).
+    public var knownTrump: CardSuit? { trumpKnown ? (trump ?? (variant == .kozMaca ? .spades : nil)) : nil }
+    public var houseRules: BatakHouseRules {
+        func flag(_ key: String, _ fallback: Bool) -> Bool { if case .bool(let value)? = rules?[key] { return value }; return fallback }
+        return BatakHouseRules(noTrumpLeadUntilBroken: flag("noTrumpLeadUntilBroken", true),
+                               defenderBatakPenalty: flag("defenderBatakPenalty", false),
+                               writeContract: flag("writeContract", false))
+    }
     public func cards(atPosition position: Int?) -> [PlayingCard] { hands.first { $0.seat == position }?.cards ?? [] }
     /// Eşli teams: positions 0+2 and 1+3.
     public func partner(of position: Int) -> Int? { variant == .esli ? (position + 2) % 4 : nil }
-    /// Mirror of the service's `legalBatakCards` for greying out cards; the server still validates (`ILLEGAL_CARD`).
+    /// The service's `legalBatakCards` (K1 on the lead included) for greying out cards; the server still validates
+    /// (`ILLEGAL_CARD`). Same port as `BatakRound.legalCards`.
     public func legalCards(_ hand: [PlayingCard]) -> [PlayingCard] {
-        guard stage == "playing", let lead = trick.first?.card.suit else { return hand }
-        let following = hand.filter { $0.suit == lead }
-        if !following.isEmpty {
-            let highest = trick.filter { $0.card.suit == lead }.map(\.card.rank).max() ?? 0
-            let higher = following.filter { $0.rank > highest }
-            return !higher.isEmpty && !trick.contains { $0.card.suit == trump && lead != trump } ? higher : following
-        }
-        let trumps = hand.filter { $0.suit == trump }
-        if trumps.isEmpty { return hand }
-        let highestTrump = trick.filter { $0.card.suit == trump }.map(\.card.rank).max() ?? 0
-        let higher = trumps.filter { $0.rank > highestTrump }
-        return higher.isEmpty ? trumps : higher
+        guard stage == "playing", let trump = knownTrump else { return hand }
+        return BatakRound.legalCards(hand, trick: trick, trump: trump, trumpBroken: trumpBroken ?? false, rules: houseRules)
     }
 }
 

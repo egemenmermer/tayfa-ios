@@ -122,7 +122,7 @@ final class GamesHoldemTests: XCTestCase {
         // Already matched the bet: check.
         let matched = try XCTUnwrap(try game(flop(streetBet: 40)).holdem)
         XCTAssertEqual(matched.toCall("ece"), 0)
-        XCTAssertEqual(HoldemActionBar(legalActions: ["fold", "check", "raise"], busy: false, callAmount: 0, stack: 260, canRaise: true).middleTitle, "Pas")
+        XCTAssertEqual(HoldemActionBar(legalActions: ["fold", "check", "raise"], busy: false, callAmount: 0, stack: 260, canRaise: true).middleTitle, "Kontrol et")
     }
 
     func testButtonsFollowLegalActions() {
@@ -183,8 +183,8 @@ final class GamesHoldemTests: XCTestCase {
         XCTAssertEqual(extras.blinds.small, "ece"); XCTAssertEqual(extras.blinds.big, "can")
         XCTAssertEqual(extras.log[0].line(name: "Ece"), "Ece · Küçük kör 10")
         XCTAssertEqual(HoldemLogEntry(street: "flop", userId: "a", action: "call", amount: 40, to: 40, allIn: false).label, "Gör 40")
-        XCTAssertEqual(HoldemLogEntry(street: "flop", userId: "a", action: "check", amount: 0, to: 0, allIn: true).label, "Pas")
-        XCTAssertEqual(HoldemLogEntry(street: "flop", userId: "a", action: "fold", amount: 0, to: 0, allIn: false).label, "Fold")
+        XCTAssertEqual(HoldemLogEntry(street: "flop", userId: "a", action: "check", amount: 0, to: 0, allIn: true).label, "Kontrol")
+        XCTAssertEqual(HoldemLogEntry(street: "flop", userId: "a", action: "fold", amount: 0, to: 0, allIn: false).label, "Bırak")
     }
 
     func testOlderServiceWithoutExtras() throws {

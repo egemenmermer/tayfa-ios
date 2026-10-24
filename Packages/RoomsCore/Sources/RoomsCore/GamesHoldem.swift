@@ -37,14 +37,14 @@ public struct HoldemLogEntry: Decodable, Equatable, Sendable {
         return 0
     }
 
-    /// The bubble over the seat: "Gör 40", "Artır 120", "All-in 300", "Pas", "Fold".
+    /// The bubble over the seat (desktop `actionLabel`): "Gör 40", "Artır 120", "All-in 300", "Kontrol", "Bırak".
     public var label: String {
         if allIn && action != "fold" && action != "check" { return "All-in \(to.formatted())" }
         switch action {
         case "smallBlind": return "Küçük kör \(amount.formatted())"
         case "bigBlind": return "Büyük kör \(amount.formatted())"
-        case "fold": return "Fold"
-        case "check": return "Pas"
+        case "fold": return "Bırak"
+        case "check": return "Kontrol"
         case "call": return "Gör \(amount.formatted())"
         case "raise": return "Artır \(to.formatted())"
         default: return action
@@ -186,14 +186,14 @@ public struct HoldemActionBar: Equatable, Sendable {
     public let middle: Middle
     public let middleEnabled: Bool
     public let raise: Bool
-    /// "Pas", "Gör 40", "All-in 30" (a call that empties the stack).
+    /// "Kontrol et", "Gör 40", "All-in 30" (a call that empties the stack); desktop wording.
     public let middleTitle: String
 
     public init(legalActions: [String], busy: Bool, callAmount: Int, stack: Int, canRaise: Bool) {
         let open = { (name: String) in !busy && legalActions.contains(name) }
         fold = open("fold")
         if legalActions.contains("check") {
-            middle = .check; middleEnabled = open("check"); middleTitle = "Pas"
+            middle = .check; middleEnabled = open("check"); middleTitle = "Kontrol et"
         } else if legalActions.contains("call") {
             middle = .call(callAmount); middleEnabled = open("call")
             middleTitle = callAmount > 0 && callAmount >= stack ? "All-in \(callAmount.formatted())" : "Gör \(callAmount.formatted())"

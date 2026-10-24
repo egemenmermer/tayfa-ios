@@ -140,6 +140,24 @@ final class GamesPistiTests: XCTestCase {
         XCTAssertEqual(rows[1], PistiSideSummary(side: 1, cards: 22, mostCards: false, pisti: 0, jackPisti: 0, cardPoints: 9, total: 9))
         XCTAssertEqual(PistiPoints.pisti, 10); XCTAssertEqual(PistiPoints.jackPisti, 20); XCTAssertEqual(PistiPoints.mostCards, 3)
     }
+    func testDealSummaryUsesTheServersPerSideBreakdown() throws {
+        let json = #"""
+        {"seats":2,"teams":false,"target":151,"viewerSeat":0,"turn":null,"hand":[],"handCounts":[0,0],"tableCount":0,"tableTop":null,"deckCount":0,
+         "capturedCounts":[30,22],"pisti":[2,0],"jackPisti":[1,0],"lastPlay":null,"lastCapture":null,
+         "result":{"points":[50,9],"winners":[0],"breakdown":[
+           {"aces":3,"jacks":2,"clubsTwo":1,"diamondsTen":0,"cards":30,"mostCards":true,"pisti":2,"jackPisti":1},
+           {"aces":1,"jacks":2,"clubsTwo":0,"diamondsTen":1,"cards":22,"mostCards":false,"pisti":0,"jackPisti":0}]}}
+        """#
+        let view = try read(json)
+        let rows = view.summary(points: try XCTUnwrap(view.result).points)
+        XCTAssertEqual(rows.map(\.cardPoints), [7, 6], "3+2+2 and 1+2+3 from the split, not total minus bonuses")
+        XCTAssertEqual(rows.map(\.total), [50, 9]); XCTAssertEqual(rows.map(\.mostCards), [true, false])
+        XCTAssertEqual(rows[0].split?.clubsTwo, 1); XCTAssertEqual(rows[1].split?.diamondsTen, 1); XCTAssertEqual(rows[1].split?.cards, 22)
+        // A short or missing breakdown falls back to the combined reading.
+        let short = try read(json.replacingOccurrences(of: #",\#n   {"aces":1,"jacks":2,"clubsTwo":0,"diamondsTen":1,"cards":22,"mostCards":false,"pisti":0,"jackPisti":0}"#, with: ""))
+        XCTAssertEqual(short.result?.breakdown?.count, 1)
+        XCTAssertNil(short.summary(points: [50, 9])[0].split); XCTAssertEqual(short.summary(points: [50, 9])[1].cardPoints, 9)
+    }
     func testNobodyGetsMostCardsOnATie() throws {
         let json = #"""
         {"seats":2,"teams":false,"target":151,"viewerSeat":0,"turn":null,"handCounts":[0,0],"tableCount":0,"deckCount":0,

@@ -142,18 +142,38 @@ final class GamesTests: XCTestCase {
         let mine = state.myBatakCards("can")
         XCTAssertEqual(mine.count, 3); XCTAssertEqual(state.myBatakCards("ece"), [], "other hands are counts only")
         XCTAssertEqual(hand.legalCards(mine).map(\.id), ["0-hearts-12"], "follow suit and head the trick")
+        XCTAssertEqual(hand.knownTrump, .spades); XCTAssertTrue(hand.houseRules.noTrumpLeadUntilBroken, "K1 defaults on for older services")
         XCTAssertEqual(state.seat(atPosition: hand.completedTricks.first?.winner)?.userId, "bot-3")
         XCTAssertEqual(BatakVariant.gommeli.minimumBid, 8); XCTAssertEqual(BatakVariant.gommeli.maximumBid, 16); XCTAssertEqual(BatakVariant.kozMaca.minimumBid, 1)
     }
     func testBatakTrumpIsUnknownWhileBidding() throws {
         let state = try game(#"""
         {"kind":"batak","ownerId":"ece","status":"playing","seats":[],"turn":0,
-         "view":{"variant":"esli","stage":"bidding","turn":0,"bid":0,"bids":[0,0,0,0],"bidder":0,"trump":"spades","tricks":[0,0,0,0],
+         "view":{"variant":"esli","stage":"bidding","turn":0,"bid":0,"bids":[0,0,0,0],"bidder":0,"trump":null,"tricks":[0,0,0,0],
            "trick":[],"scores":[],"completedTricks":[],"hands":[],"buriedCount":0,"legalActions":["bid","pass"]},"history":[]}
         """#)
-        let hand = try XCTUnwrap(state.batak)
-        XCTAssertFalse(hand.trumpKnown); XCTAssertEqual(hand.partner(of: 1), 3)
+        let hand = try XCTUnwrap(state.batak, "the service sends trump null until the bidder picks it")
+        XCTAssertFalse(hand.trumpKnown); XCTAssertNil(hand.trump); XCTAssertNil(hand.knownTrump); XCTAssertEqual(hand.partner(of: 1), 3)
         XCTAssertEqual(state.legalActions, [.bid, .pass]); XCTAssertEqual(state.table, GameTableView(from: [], legal: ["bid", "pass"]))
+    }
+
+    func testBatakHandViewAppliesK1OnTheLead() throws {
+        func lead(broken: Bool?, rules: String) throws -> [String] {
+            let extra = (broken.map { "\"trumpBroken\":\($0)," } ?? "") + rules
+            let state = try game(#"""
+            {"kind":"batak","ownerId":"ece","status":"playing","seats":[],"turn":0,
+             "view":{"variant":"ihaleli","stage":"playing","turn":0,"bid":7,"bids":[0,0,0,0],"bidder":0,"trump":"hearts",
+               \#(extra)"tricks":[0,0,0,0],"trick":[],"scores":[],"completedTricks":[],
+               "hands":[{"seat":0,"cards":[{"id":"0-hearts-14","suit":"hearts","rank":14},{"id":"0-clubs-3","suit":"clubs","rank":3}],"count":2}],
+               "buriedCount":0,"legalActions":["play"]},"history":[]}
+            """#)
+            let hand = try XCTUnwrap(state.batak)
+            return hand.legalCards(hand.cards(atPosition: 0)).map(\.id)
+        }
+        XCTAssertEqual(try lead(broken: false, rules: ""), ["0-clubs-3"], "no trump lead until broken (K1)")
+        XCTAssertEqual(try lead(broken: nil, rules: ""), ["0-clubs-3"], "older services: K1 on, not broken")
+        XCTAssertEqual(try lead(broken: true, rules: ""), ["0-hearts-14", "0-clubs-3"])
+        XCTAssertEqual(try lead(broken: false, rules: #""rules":{"noTrumpLeadUntilBroken":false},"#), ["0-hearts-14", "0-clubs-3"])
     }
 
     // MARK: 101 Okey
