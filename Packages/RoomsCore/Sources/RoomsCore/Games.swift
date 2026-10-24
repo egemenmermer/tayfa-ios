@@ -17,7 +17,7 @@ private extension KeyedDecodingContainer {
 
 // MARK: - Kinds and states
 
-public enum GameKind: Hashable, Sendable, Codable, CaseIterable {
+public enum GameKind: Hashable, Sendable, Codable, CaseIterable, Identifiable {
     case holdem, blackjack, batak, okey101
     /// Registry games (`packages/games/src/registry.ts`); their views are read with `GameState.view(as:)`.
     case pisti, okey, tavla
@@ -49,6 +49,7 @@ public enum GameKind: Hashable, Sendable, Codable, CaseIterable {
         case .unknown(let value): value
         }
     }
+    public var id: String { rawValue }
     public var known: Bool { if case .unknown = self { return false }; return true }
     /// Turkish table name, as the desktop shows it.
     public var title: String {
