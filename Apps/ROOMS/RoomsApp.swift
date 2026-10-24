@@ -46,6 +46,7 @@ private struct RootView: View {
         ZStack {
             Palette.canvas.ignoresSafeArea()
             if model.restoring { VStack(spacing: 18) { Text("Tayfa").font(.title2.weight(.black)).tracking(5); ProgressView("Oturum açılıyor…") } }
+            else if model.user == nil, model.restoreProblem != nil { RestoreRetryView(model: model) }
             else if model.user == nil { LoginView(model: model) }
             else { CommunityShell(model: model, chat: model.chat, media: model.media); DMCallHost(calls: model.calls, model: model) }
         }

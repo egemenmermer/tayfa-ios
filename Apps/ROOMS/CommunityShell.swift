@@ -11,6 +11,7 @@ struct CommunityShell: View {
     @State private var query = ""
     @State private var account = false
     @State private var audioSettings = false
+    @State private var inviteSheet = false
     @State private var communityInfo = false
     @State private var miniRect = CGRect.zero
     /// Discord-like bottom tabs: Sunucular, Mesajlar, Sen.
@@ -259,8 +260,10 @@ struct CommunityShell: View {
         } description: {
             Text("Bir arkadaşının gönderdiği davet bağlantısını aç; Tayfa seni topluluğa ekler. Katılınca kanalların burada görünür.")
         } actions: {
+            Button("Davet kodu gir") { inviteSheet = true }.buttonStyle(.borderedProminent).frame(minHeight: 44)
             Button("Yenile") { model.retryList(); chat.retryCatalog() }.buttonStyle(.bordered).frame(minHeight: 44)
         }.font(.footnote)
+        .sheet(isPresented: $inviteSheet) { InviteCodeSheet(model: model) }
     }
     private var channels: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -635,6 +638,7 @@ private struct AccountPanel: View {
     @State private var loadError: String?
     @State private var presenceError: String?
     @State private var confirmLogout = false
+    @State private var inviteSheet = false
     var body: some View {
         NavigationStack {
             Form {
@@ -668,9 +672,11 @@ private struct AccountPanel: View {
                     NavigationLink { RoomAudioSettingsView(media: media, chat: chat, embedded: true) } label: { Label("Ses ve görüntü", systemImage: "slider.horizontal.3") }
                     Button { if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) } } label: { Label("Bildirimler", systemImage: "bell.badge") }
                 }
+                Section { Button("Davet kodu gir", systemImage: "ticket") { inviteSheet = true } }
                 Section { Button("Çıkış yap", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { confirmLogout = true } }
                 Section { Text("Tayfa \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))").font(.footnote).foregroundStyle(.secondary) }
             }.navigationTitle("Ayarlar").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Kapat") { dismiss() } } }
+            .sheet(isPresented: $inviteSheet) { InviteCodeSheet(model: model) }
                 .confirmationDialog("Çıkış yapılsın mı?", isPresented: $confirmLogout, titleVisibility: .visible) {
                     Button("Çıkış yap", role: .destructive) { dismiss(); Task { await model.logout() } }
                     Button("Vazgeç", role: .cancel) {}

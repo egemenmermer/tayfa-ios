@@ -13,7 +13,7 @@ import UserNotifications
     func enable() async {
         let center = UNUserNotificationCenter.current()
         if await center.notificationSettings().authorizationStatus == .notDetermined {
-            _ = try? await center.requestAuthorization(options: [.alert, .sound])
+            _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         }
         switch await center.notificationSettings().authorizationStatus {
         case .authorized, .provisional, .ephemeral: UIApplication.shared.registerForRemoteNotifications()
