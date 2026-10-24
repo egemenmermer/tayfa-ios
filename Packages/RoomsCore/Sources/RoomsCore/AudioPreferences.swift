@@ -31,6 +31,8 @@ public struct AudioPreferences: Codable, Equatable, Sendable {
     public var participants: [String: ParticipantAudioPreference] = [:]
     /// Short sounds when someone enters or leaves the room (on by default, as on desktop).
     public var roomEventSounds = true
+    /// Short synthesized cues at game tables (cards, tiles, dice, your turn, round end); on by default.
+    public var gameSounds = true
     /// The microphone as the person last left it with the mic button; a first-ever join starts muted (desktop RC24).
     public var microphoneOn = false
     /// Other people's chosen entrance and leave sounds; off plays the classic cue for everyone.
@@ -45,7 +47,7 @@ public struct AudioPreferences: Codable, Equatable, Sendable {
     public static let maxMutedEntranceUsers = 500
     public var roomGain: Double { RoomLoudness.gain(forLevel: roomLevel) }
     public init() {}
-    private enum CodingKeys: String, CodingKey { case noiseSuppression, roomLevel, roomVolume, participants, roomEventSounds, microphoneOn, personalSounds, soundEffectsLevel, mutedEntranceUsers }
+    private enum CodingKeys: String, CodingKey { case noiseSuppression, roomLevel, roomVolume, participants, roomEventSounds, gameSounds, microphoneOn, personalSounds, soundEffectsLevel, mutedEntranceUsers }
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         noiseSuppression = try container.decodeIfPresent(Bool.self, forKey: .noiseSuppression) ?? true
@@ -57,6 +59,7 @@ public struct AudioPreferences: Codable, Equatable, Sendable {
         }
         participants = try container.decodeIfPresent([String: ParticipantAudioPreference].self, forKey: .participants) ?? [:]
         roomEventSounds = try container.decodeIfPresent(Bool.self, forKey: .roomEventSounds) ?? true
+        gameSounds = (try? container.decodeIfPresent(Bool.self, forKey: .gameSounds)) ?? true
         microphoneOn = try container.decodeIfPresent(Bool.self, forKey: .microphoneOn) ?? false
         personalSounds = (try? container.decodeIfPresent(Bool.self, forKey: .personalSounds)) ?? true
         soundEffectsLevel = Self.effectsLevel((try? container.decodeIfPresent(Double.self, forKey: .soundEffectsLevel)) ?? 1)
@@ -71,6 +74,7 @@ public struct AudioPreferences: Codable, Equatable, Sendable {
         try container.encode(roomLevel, forKey: .roomLevel)
         try container.encode(participants, forKey: .participants)
         try container.encode(roomEventSounds, forKey: .roomEventSounds)
+        try container.encode(gameSounds, forKey: .gameSounds)
         try container.encode(microphoneOn, forKey: .microphoneOn)
         try container.encode(personalSounds, forKey: .personalSounds)
         try container.encode(soundEffectsLevel, forKey: .soundEffectsLevel)

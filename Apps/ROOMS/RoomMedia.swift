@@ -108,6 +108,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     override init() {
         super.init()
         playout.onActive = { [weak self] in self?.refreshAudio() }
+        GameSounds.player = { [weak self] cue in self?.playGameCue(cue) }
         handleData(topic: WatchAnnouncement.topic) { [weak self] packet in self?.receiveWatch(packet) }
         // Publication waits for the room's screen-share permission, so it is not automatic.
         BroadcastManager.shared.shouldPublishTrack = false
@@ -178,7 +179,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         guard room != nil, removed else { return }
         recovery.cancelMicrophoneRestore()
         // Avoid unexpectedly sending a conversation through the loudspeaker.
-        hearingMuted = true; hearingCarry.record(true); screenMuted = true; refreshAudio(); muteForAudioEvent(); stopCues(); stopPreview()
+        hearingMuted = true; hearingCarry.record(true); screenMuted = true; refreshAudio(); muteForAudioEvent(); stopCues(); stopGameCues(); stopPreview()
         onHearingChange?(true)
         audioNotice = "Kulaklık bağlantısı kesildi. Mikrofon ve sesler kapatıldı; çıkışı kontrol edip yeniden aç."
     }
@@ -319,6 +320,11 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         guard enabled != audioPreferences.roomEventSounds else { return }
         audioPreferences.roomEventSounds = enabled; saveAudioPreferences()
         if !enabled { stopCues() }
+    }
+    func setGameSounds(_ enabled: Bool) {
+        guard enabled != audioPreferences.gameSounds else { return }
+        audioPreferences.gameSounds = enabled; saveAudioPreferences()
+        if !enabled { stopGameCues() }
     }
     func setPersonalSounds(_ enabled: Bool) {
         guard enabled != audioPreferences.personalSounds else { return }
@@ -481,6 +487,31 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         player.volume = cueVolume(personal: personal)
         if player.play() { cuePlayers.append((actor, personal, player)) }
         else if let fallback { playClassic(fallback) }
+    }
+    // MARK: Game table cues
+    /// Synthesized table cues (`GameCueTone`, desktop recipes) for the games of this voice room, heard only here.
+    /// They play like the room cues: an `AVAudioPlayer` inside the call session LiveKit owns (no category or
+    /// activation change, no second audio engine), so they mix with the voices instead of interrupting them.
+    /// Outside a connected room nothing plays (an app-default session would stop other apps' audio).
+    private var gameCuePlayers: [AVAudioPlayer] = []
+    private var gameCueGate = GameCueGate()
+    private var gameCueData: [GameCue: Data] = [:]
+    private var gameCuesAudible: Bool {
+        connected && audioPreferences.gameSounds && audioPreferences.soundEffectsLevel > 0
+            && !hearingMuted && !audioInterrupted && !audioNeedsResume
+    }
+    func playGameCue(_ cue: GameCue) {
+        gameCuePlayers.removeAll { !$0.isPlaying }
+        guard gameCuesAudible, gameCuePlayers.count < 4, gameCueGate.admit(cue, now: Self.cueNow()) else { return }
+        let data = gameCueData[cue] ?? GameCueTone.wav(cue)
+        gameCueData[cue] = data
+        guard let player = try? AVAudioPlayer(data: data) else { return }
+        player.volume = Float(GameCueTone.gain * audioPreferences.soundEffectsLevel)
+        if player.play() { gameCuePlayers.append(player) }
+    }
+    private func stopGameCues() {
+        for player in gameCuePlayers { player.stop() }
+        gameCuePlayers = []; gameCueGate.reset()
     }
     /// Stops what is playing: everything, only personal clips, or one person's.
     private func stopCuePlayers(personalOnly: Bool = false, actor: String? = nil) {

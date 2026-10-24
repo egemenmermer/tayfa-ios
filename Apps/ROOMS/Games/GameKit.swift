@@ -50,12 +50,11 @@ struct GameTableContext {
     static func refused() { UINotificationFeedbackGenerator().notificationOccurred(.error) }
 }
 
-/// Table sound cues (desktop `games/shared/sounds.ts` names). Not wired yet: a later track plugs synthesized
-/// cues in here, gated by the room's event-sound setting and the deafen state.
-enum GameCue: String, CaseIterable, Sendable { case deal, play, tile, capture, dice, turn, win, end }
+/// Table sound cues (`GameCue`, desktop `games/shared/sounds.ts` names). `RoomMedia` installs the player: synthesized
+/// `GameCueTone`s inside the voice room's audio session, gated by "Oyun sesleri", the effects level and deafen.
 @MainActor enum GameSounds {
     /// Replaceable hook; nil plays nothing.
-    static var player: ((GameCue) -> Void)?
+    static var player: (@MainActor (GameCue) -> Void)?
     static func play(_ cue: GameCue) { player?(cue) }
 }
 
