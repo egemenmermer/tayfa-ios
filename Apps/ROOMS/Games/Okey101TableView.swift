@@ -172,7 +172,7 @@ private struct Okey101Table: View {
                     centerPile(info: info, controls: controls)
                     meldArea(controls: controls, tiles: tiles)
                 }
-                moveLog
+                if !builderOpen { moveLog }
             }
             .padding(.horizontal, 66).padding(.vertical, 4)
             pile(.top, controls: controls).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -181,6 +181,8 @@ private struct Okey101Table: View {
             pile(.bottom, controls: controls).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // The felt has a fixed share of a landscape phone; larger text sizes would push the piles over the melds.
+        .dynamicTypeSize(...DynamicTypeSize.large)
     }
 
     private func centerPile(info: Okey101TableInfo, controls: Okey101Controls) -> some View {
@@ -198,12 +200,12 @@ private struct Okey101Table: View {
                 .accessibilityLabel("Kapalı taş çek, \(hand.remainingStock) taş")
                 VStack(spacing: 2) {
                     GameTileView(tile: hand.indicator, width: 30)
-                    Text("Gösterge").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.85))
+                    Text("Gösterge").font(.caption2.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Gösterge \(hand.indicator.color.title) \(hand.indicator.value), okey \(hand.indicator.color.title) \(hand.jokerValue)")
             }
-            Text(badgeLine(info)).font(.system(size: 9)).foregroundStyle(.white.opacity(0.75)).lineLimit(2).multilineTextAlignment(.center)
+            if !builderOpen { Text(badgeLine(info)).font(.caption2).foregroundStyle(.white.opacity(0.75)).lineLimit(2).multilineTextAlignment(.center) }
         }
     }
     private func badgeLine(_ info: Okey101TableInfo) -> String {
@@ -219,7 +221,7 @@ private struct Okey101Table: View {
         let mine = place == .bottom && context.mySeat != nil
         let last = hand.stage == "draw" && turn.map { ($0 + 3) % 4 } == position
         return VStack(spacing: 2) {
-            Text(mine ? "Attığın" : "\(name(position)) attı").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+            Text(mine ? "Attığın" : "\(name(position)) attı").font(.caption2.weight(.semibold)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
             if let top {
                 Button { if takeable { takeSide(top) } } label: {
                     GameTileView(tile: top, width: 26)
@@ -234,7 +236,7 @@ private struct Okey101Table: View {
                     .frame(width: 26, height: 38)
                     .overlay(Text(mine && controls.discard ? "At" : "—").font(.caption2).foregroundStyle(.white.opacity(0.6)))
             }
-            if takeable { Text("Al").font(.system(size: 9, weight: .bold)).foregroundStyle(.yellow) }
+            if takeable { Text("Al").font(.caption2.bold()).foregroundStyle(.yellow) }
         }
         .padding(4)
         .dropDestination(for: String.self) { items, _ in
@@ -256,7 +258,7 @@ private struct Okey101Table: View {
                         ForEach(owners, id: \.self) { owner in
                             HStack(alignment: .center, spacing: 6) {
                                 Text("\(name(owner)) · \(hand.melds.first { $0.owner == owner }?.pairs == true ? "Çift" : "Seri")")
-                                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(.white.opacity(0.85)).frame(width: 64, alignment: .leading).lineLimit(1)
+                                    .font(.caption2.weight(.semibold)).foregroundStyle(.white.opacity(0.85)).frame(width: 64, alignment: .leading).lineLimit(1)
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 6) {
                                         ForEach(Array(hand.melds.enumerated()).filter { $0.element.owner == owner }, id: \.offset) { index, meld in
@@ -384,7 +386,7 @@ private struct Okey101Table: View {
                 }
                 .accessibilityLabel("Okey nasıl okunsun? Per \(index + 1): \(draft.kind == .group ? "Aynı sayı" : "Sıralı")")
             }
-            Button { drafts.remove(at: index) } label: { Image(systemName: "xmark.circle.fill").frame(width: 32, height: 44) }
+            Button { if drafts.indices.contains(index) { drafts.remove(at: index) } } label: { Image(systemName: "xmark.circle.fill").frame(width: 32, height: 44) }
                 .accessibilityLabel("Grup \(index + 1) kaldır")
         }
         .padding(.horizontal, 4)
@@ -485,7 +487,7 @@ private struct Okey101Table: View {
                 Button("Önceki taşı al") { if let top = hand.takeableDiscard(forPosition: base) { takeSide(top) } }
                     .buttonStyle(.bordered).frame(maxWidth: .infinity, minHeight: 44).disabled(!controls.takeSide)
             } else {
-                Button(tiles.count == 1 ? "Bitir · Son taşı at" : "Seçili taşı at") { if one { discard(selected[0]) } }
+                Button(tiles.count == 1 ? "Bitir · Son taşı at" : "Seçili taşı at") { if selected.count == 1, let id = selected.first, !draftIDs.contains(id) { discard(id) } }
                     .buttonStyle(.borderedProminent).frame(maxWidth: .infinity, minHeight: 44).disabled(!controls.discard || !one)
                 Button(builderOpen ? "Açılışı kapat" : hand.openedMode(atPosition: context.myPosition) == nil ? "Açılış hazırla" : "Per aç") { builderOpen.toggle() }
                     .buttonStyle(.bordered).frame(maxWidth: .infinity, minHeight: 44)
@@ -552,7 +554,8 @@ private struct Okey101SummaryCard: View {
     let name: (Int) -> String
     let onClose: (() -> Void)?
     var body: some View {
-        let totals = game.okey101Totals
+        // Table statistics: authoritative and not capped by the history limit.
+        let totals = game.table.statistics.mapValues(\.score)
         let seats = game.history.last?.seats
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
