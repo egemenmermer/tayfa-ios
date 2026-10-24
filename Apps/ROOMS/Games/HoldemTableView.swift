@@ -542,7 +542,7 @@ private struct HoldemRaiseSheet: View {
 
 // MARK: - Buy-in
 
-private struct HoldemBuyInTarget: Identifiable {
+struct HoldemBuyInTarget: Identifiable {
     let seat: Int
     /// Topping up the own seat (stack below the minimum), not taking a free one.
     let rebuy: Bool
@@ -550,7 +550,8 @@ private struct HoldemBuyInTarget: Identifiable {
 }
 
 /// Virtual chips for a free seat or a rebuy, inside the table's buy-in range (never real money).
-private struct HoldemBuyInSheet: View {
+/// Buy-in or rebuy sheet; also used by the host's seat picker (`GameSeatPicker`) for Hold'em.
+struct HoldemBuyInSheet: View {
     let target: HoldemBuyInTarget
     let range: ClosedRange<Int>
     let initial: Int

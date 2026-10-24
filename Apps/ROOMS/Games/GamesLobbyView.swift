@@ -145,13 +145,37 @@ struct GamesLobbyView: View {
 // MARK: - Seats
 
 /// Free seats with "Otur" (and "Bot ekle" for the owner), shown between hands and to anyone not seated.
+/// Hold'em with a buy-in range sits through the table's buy-in sheet (`game.sit {seat, buyIn}`), like its empty seats.
 struct GameSeatPicker: View {
     @ObservedObject var watch: WatchTogetherModel
     let chat: ChatController
     let game: GameState
     let roomHost: Bool
+    @State private var buyIn: HoldemBuyInTarget?
     private var seated: Bool { game.seat(of: watch.me) != nil }
+    private func sit(_ number: Int) {
+        GameHaptics.tap()
+        if game.kind == .holdem, let range = HoldemBuyIn.range(game.table.rules), range.lowerBound < range.upperBound {
+            buyIn = HoldemBuyInTarget(seat: number, rebuy: false)
+        } else {
+            // Other games, or a fixed Hold'em buy-in: the service seats with the table's starting stack.
+            watch.run(.game(.sit(seat: number)))
+        }
+    }
     var body: some View {
+        seats.sheet(item: $buyIn) { target in
+            if let range = HoldemBuyIn.range(game.table.rules) {
+                HoldemBuyInSheet(target: target, range: range, initial: HoldemBuyIn.initial(game.table.rules) ?? range.lowerBound,
+                                 step: max(1, game.table.rules?.bigBlind ?? 20), chips: 0, playing: game.status == .playing, busy: watch.busy) { amount in
+                    buyIn = nil
+                    GameHaptics.tap()
+                    watch.run(.game(.sit(seat: target.seat, buyIn: amount)))
+                }
+                .presentationDetents([.height(340)])
+            }
+        }
+    }
+    @ViewBuilder private var seats: some View {
         let free = game.freeSeats
         if !free.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
@@ -161,7 +185,7 @@ struct GameSeatPicker: View {
                         ForEach(free, id: \.self) { number in
                             VStack(spacing: 6) {
                                 Text("Koltuk \(number + 1)").font(.caption.bold())
-                                Button("Otur") { GameHaptics.tap(); watch.run(.game(.sit(seat: number))) }
+                                Button("Otur") { sit(number) }
                                     .buttonStyle(.borderedProminent).foregroundStyle(Palette.canvas).font(.footnote.bold())
                                     .disabled(seated || watch.busy)
                                 if game.isOwner(watch.me) {
