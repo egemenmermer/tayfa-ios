@@ -21,6 +21,8 @@ public struct ActivityPrimary: Codable, Equatable, Sendable {
     public var sharedPlayer: Bool { ["youtube", "cinema", "hall", "screen"].contains(activity) }
     /// The host's "only me and invited people steer" setting (`session.control`).
     public var hostOnly: Bool { controlMode == "host" }
+    /// A Kıraathane table (`holdem`, `blackjack`, `batak`, `101`); its state is `ActivityRoom.game`.
+    public var isGame: Bool { ["holdem", "blackjack", "batak", "101"].contains(activity) }
 }
 public struct ActivityTimeline: Codable, Equatable, Sendable {
     public let playing: Bool
@@ -123,6 +125,8 @@ public struct ActivityRoom: Codable, Equatable, Sendable {
     public let queue: [ActivityQueueItem]
     public let polls: [ActivityPoll]?
     public let whiteboard: [WhiteboardElement]?
+    /// The room's game table as projected for this viewer (see `Games.swift`); nil without a table or if it cannot be read.
+    public let game: GameState?
     /// The creator or anyone with room control may close a poll (as the service checks).
     public func closes(_ poll: ActivityPoll, _ userID: String?) -> Bool {
         poll.createdBy == userID || (participant(userID)?.canControl ?? true)
@@ -146,6 +150,21 @@ public struct ActivityRoom: Codable, Equatable, Sendable {
         return primary.hostUserId == userID
     }
     public func canStart(_ userID: String?) -> Bool { participant(userID)?.canCreate ?? true }
+}
+extension ActivityRoom {
+    /// A table this build cannot read never hides the rest of the room (queue, polls, whiteboard).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        roomId = try c.decode(String.self, forKey: .roomId)
+        revision = try c.decode(Int.self, forKey: .revision)
+        participants = try c.decode([ActivityParticipant].self, forKey: .participants)
+        primary = try c.decodeIfPresent(ActivityPrimary.self, forKey: .primary)
+        timeline = try c.decode(ActivityTimeline.self, forKey: .timeline)
+        queue = try c.decode([ActivityQueueItem].self, forKey: .queue)
+        polls = try c.decodeIfPresent([ActivityPoll].self, forKey: .polls)
+        whiteboard = try c.decodeIfPresent([WhiteboardElement].self, forKey: .whiteboard)
+        game = (try? c.decodeIfPresent(GameState.self, forKey: .game)) ?? nil
+    }
 }
 public struct ActivityResponse: Codable, Sendable {
     public let protocolVersion: Int
@@ -178,9 +197,12 @@ public enum ActivityCommand: Equatable, Sendable {
     case sessionHost(userID: String)
     case whiteboardPut(WhiteboardElement)
     case whiteboardRemove(elementID: String)
+    /// `game.create`, `game.sit`, `game.action` and the other table commands.
+    case game(GameCommand)
 
     public var json: JSONValue {
         switch self {
+        case .game(let command): return command.json
         case .join: return .object(["type": .string("join")])
         case .leave: return .object(["type": .string("leave")])
         case .end: return .object(["type": .string("end")])
@@ -254,6 +276,38 @@ public struct ActivityError: Error, LocalizedError, Equatable, Sendable {
         case "POLL_CLOSED": "Bu anket kapandı. Artık oy değiştirilemez."
         case "POLL_CONTROL_DENIED": "Anketi kapatma iznin yok."
         case "POLL_LIMIT": "Bu odada çok fazla anket var."
+        // Game tables (desktop `i18n.ts` text).
+        case "TABLE_OWNER_REQUIRED": "Bu işlemi yalnızca masa sahibi yapabilir."
+        case "NOT_YOUR_TURN": "Şu anda sıra sende değil. Masa güncellendiğinde yeniden dene."
+        case "MORE_SEATS_REQUIRED": "Bu oyunu başlatmak için daha fazla oyuncu veya bot gerekiyor."
+        case "SEAT_UNAVAILABLE": "Bu koltuk artık uygun değil. Başka bir koltuk seç."
+        case "TAKE_A_SEAT_FIRST": "Önce masada boş bir koltuğa otur."
+        case "GAME_TABLE_REQUIRED": "Bu masanın etkinliği sona erdi. Yeni bir masa kur."
+        case "HAND_FINISHED": "Bu el tamamlandı. Masa sahibi yeni eli başlatabilir."
+        case "HAND_ALREADY_PLAYING": "Bir el zaten devam ediyor. Tamamlanmasını bekle."
+        case "CHECK_UNAVAILABLE": "Karşılanmamış bahis var. Gör, artır veya eli bırak."
+        case "INVALID_RAISE": "Artırma miktarı geçersiz. Mevcut bahis ile puanın arasındaki bir miktarı seç."
+        case "RAISE_TOO_SMALL": "Artırma, masanın en düşük artırma miktarından küçük olamaz."
+        case "BETTING_NOT_REOPENED": "Bu turda yeniden artırma hakkın yok."
+        case "INVALID_VIRTUAL_BET": "En az 2 ve puanını aşmayan çift bir sanal bahis miktarı gir."
+        case "DRAW_REQUIRED": "Önce bir taş çek."
+        case "TILE_NOT_IN_HAND": "Seçilen taş elinde değil. Güncel elinden yeniden seç."
+        case "KEEP_ONE_DISCARD_TILE": "Elini açarken atmak için bir taş bırakmalısın."
+        case "PICKED_DISCARD_MUST_BE_USED": "Yerden aldığın taşı açarken veya işlerken kullanmalısın. Vazgeçmek için desteden taş çek."
+        case "DISCARD_EMPTY": "Önceki oyuncunun alabileceğin bir taşı yok."
+        case "OPENING_MODE_LOCKED": "Bu eldeki açılış türün zaten belirlendi. Aynı türle devam et."
+        case "OPEN_AND_SELECT_MELD_FIRST": "İşlemek için önce elini aç ve masadan bir seri seç."
+        case "PAIR_CANNOT_EXTEND": "Çift grubu uzatılamaz. İşlemek için bir seri seç."
+        case "INVALID_MELD_EXTENSION": "Seçtiğin taşlar bu seriye işlenemiyor. Renk ve sırayı kontrol et."
+        case "EXACT_JOKER_REPLACEMENT_REQUIRED": "Okeyi almak için temsil ettiği renk ve sayıdaki tek taşı koymalısın."
+        case "REQUEST_SEAT_RETURN_FIRST": "Kontrolü geri almak için Masaya geri dön düğmesine bas."
+        // Game codes the desktop catalog does not cover yet (iPhone text).
+        case "PRIMARY_ACTIVITY_STALE": "Odadaki etkinlik bu sırada değişti. Güncel durumu kontrol edip yeniden dene."
+        case "WAIT_FOR_NEXT_HAND": "El sürüyor. Bu masaya bir sonraki elde oturabilirsin."
+        case "SPECTATORS_DISABLED": "Bu masa izleyiciye kapalı."
+        case "ILLEGAL_CARD": "Bu kart şu an oynanamaz. Açılan renge uy, yükselebiliyorsan yüksel; rengin yoksa koz at."
+        case "INVALID_BID": "Bu ihale geçersiz. Önceki ihaleden yüksek ve masanın sınırları içinde bir sayı seç."
+        case "OPENING_TOO_LOW": "Açmak için en az 101 gerekiyor; katlamalı masada önceki en yüksek açılışı geçmelisin."
         default: "Etkinlik servisine ulaşılamıyor. Yeniden dene."
         }
     }
