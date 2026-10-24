@@ -237,7 +237,8 @@ final class GamesOkeyTests: XCTestCase {
         // Round index -> table seat (seats 1/3/5/7) and the viewer's name.
         XCTAssertEqual(state.okeySeat(round: 2)?.userId, "cem")
         XCTAssertEqual(state.okeyName(round: 1, me: "me"), "Sen"); XCTAssertEqual(state.okeyName(round: 3, me: "me"), "Dan")
-        XCTAssertEqual(state.okeyRackKey(me: "me"), "rooms-okey-rack:ali:0:me")
+        XCTAssertEqual(state.okeyRound, 1)
+        XCTAssertEqual(state.okeyRackKey(view, me: "me"), "rooms-okey-rack:ali:1:yellow-6-0:me")
         XCTAssertTrue(state.isMyTurn("me")) // game.turn is the table seat number 3
         // Another game's view is not read as Okey.
         XCTAssertNil(try game(view: #""kind":"rooms-pisti-v1","okey":{"color":"red","value":1},"stage":"draw""#).okeyClassic)
@@ -285,6 +286,11 @@ final class GamesOkeyTests: XCTestCase {
         // A selected tile that does not finish: "At" works, "Bitir" still throws the finishing tile.
         controls = OkeyClassicControls(view: view, legalActions: legal, busy: false, selected: rack[0].id, finisher: finisher)
         XCTAssertTrue(controls.discard); XCTAssertEqual(controls.finishTileID, rack.last?.id)
+        // The precomputed set gives the same answers without searching again.
+        let finishable = OkeyClassicControls.finishable(view)
+        XCTAssertEqual(finishable, [rack.last!.id])
+        XCTAssertEqual(OkeyClassicControls(view: view, legalActions: legal, busy: false, selected: rack[0].id, finisher: finisher, finishable: finishable), controls)
+        XCTAssertEqual(OkeyClassicControls(view: view, legalActions: legal, busy: false, selected: rack.last!.id, finisher: nil, finishable: finishable).finishTileID, rack.last!.id)
         // A selected tile that is not in the hand never enables "At".
         controls = OkeyClassicControls(view: view, legalActions: legal, busy: false, selected: "nope", finisher: finisher)
         XCTAssertFalse(controls.discard)
@@ -314,6 +320,9 @@ final class GamesOkeyTests: XCTestCase {
         let state = try game(view: json, status: "finished", statistics: #"{"me":{"hands":1,"wins":0,"score":-4},"cem":{"hands":1,"wins":1,"score":0}}"#)
         let view = try XCTUnwrap(state.okeyClassic)
         XCTAssertTrue(view.ended); XCTAssertFalse(view.myTurn)
+        XCTAssertEqual(state.okeyRound, 0) // no history entry in this fixture
+        let trimmed = try JSONDecoder().decode(GameState.self, from: Data(#"{"kind":"rooms-okey-v1","ownerId":"ali","status":"playing","seats":[],"history":[{"hand":205,"endedAt":1,"result":{}}],"view":{}}"#.utf8))
+        XCTAssertEqual(trimmed.okeyRound, 206)
         XCTAssertEqual(view.finish?.okeyDiscard, true); XCTAssertEqual(view.finish?.melds.first?.count, 3)
         XCTAssertEqual(OkeyClassicText.endReason(view) { state.okeyName(round: $0, me: "me") }, "Cem okey atarak bitirdi")
         let rows = state.okeySummary(view, me: "me")

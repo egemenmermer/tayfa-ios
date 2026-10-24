@@ -13,8 +13,8 @@ struct OkeyTableView: View {
     let context: GameTableContext
     var body: some View {
         if let view = context.game.okeyClassic {
-            // A new round is a new history entry: its rack order, selection, log and summary start afresh.
-            OkeyBoard(context: context, view: view).id(context.game.history.count)
+            // Each round gets a fresh board: rack order, selection, log and summary start afresh.
+            OkeyBoard(context: context, view: view).id(context.game.okeyRound)
         } else {
             ContentUnavailableView {
                 Label(context.game.table.spectatorAccess ? "Taşlar dağıtılıyor" : "Masa gizli", systemImage: "square.grid.3x2.fill")
@@ -34,6 +34,8 @@ private struct OkeyBoard: View {
     @State private var arranged: OkeyClassicRack.Layout?
     @State private var selected: String?
     @State private var finisher: String?
+    /// Tiles whose discard finishes the rack (searched once per rack, not per body).
+    @State private var finishable: Set<String> = []
     @State private var notice: String?
     @State private var log: [String] = []
     @State private var summaryOpen = true
@@ -44,9 +46,9 @@ private struct OkeyBoard: View {
     private var hand: [OkeyTile] { view.hand ?? [] }
     private var handIDs: [String] { hand.map(\.id) }
     private var layout: OkeyClassicRack.Layout { OkeyClassicRack.reconcile(arranged, ids: handIDs) }
-    private var rackKey: String { game.okeyRackKey(me: context.me) }
+    private var rackKey: String { game.okeyRackKey(view, me: context.me) }
     private var controls: OkeyClassicControls {
-        OkeyClassicControls(view: view, legalActions: game.table.legalActions, busy: context.busy, selected: selected, finisher: finisher)
+        OkeyClassicControls(view: view, legalActions: game.table.legalActions, busy: context.busy, selected: selected, finisher: finisher, finishable: finishable)
     }
     private var finisherKey: String { "\(handIDs.joined(separator: ",")):\(view.stage.rawValue):\(view.myTurn)" }
     private var ended: Bool { view.ended || game.status == .finished }
@@ -67,17 +69,17 @@ private struct OkeyBoard: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: summaryOpen)
         .onAppear {
             arranged = store.load(rackKey)
-            finisher = OkeyClassicControls.finisher(view)
+            refreshFinish()
             if let last = view.lastAction { log = [line(last)] }
         }
         .onChange(of: handIDs) { _, ids in
             // Keep a drawn tile where it landed and forget thrown ones, so the rack never jumps.
             let next = OkeyClassicRack.reconcile(arranged, ids: ids)
             arranged = next
-            store.save(next, for: rackKey)
+            if !ended { store.save(next, for: rackKey) }
             if let current = selected, !ids.contains(current) { selected = nil }
         }
-        .onChange(of: finisherKey) { _, _ in finisher = OkeyClassicControls.finisher(view) }
+        .onChange(of: finisherKey) { _, _ in refreshFinish() }
         .onChange(of: view.lastAction?.key) { _, _ in
             guard let last = view.lastAction else { return }
             withAnimation(animation) { log = Array(([line(last)] + log).prefix(3)) }
@@ -92,6 +94,11 @@ private struct OkeyBoard: View {
             AccessibilityNotification.Announcement("Sıra sende").post()
         }
         .onChange(of: view.stage) { _, _ in notice = nil }
+    }
+
+    private func refreshFinish() {
+        finisher = OkeyClassicControls.finisher(view)
+        finishable = OkeyClassicControls.finishable(view)
     }
 
     private func line(_ action: OkeyClassicLastAction) -> String {
@@ -230,7 +237,7 @@ private struct OkeyBoard: View {
 
     private func middle(_ size: OkeySizes) -> some View {
         VStack(spacing: 3) {
-            Text("El \(game.history.count + (ended ? 0 : 1)) · \(view.scoring.title) · Okey: \(view.okey.title)")
+            Text("El \(max(1, game.okeyRound)) · \(view.scoring.title) · Okey: \(view.okey.title)")
                 .font(.caption2.bold()).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
             HStack(spacing: 14) {
                 Button { draw(fromDiscard: false) } label: {
@@ -362,7 +369,7 @@ private struct OkeyBoard: View {
     @ViewBuilder private func tileActions(_ tile: OkeyTile, cell: Int) -> some View {
         let column = cell % OkeyClassicRack.columns
         if context.can("discard") { Button("At") { throwTile(tile.id, finish: false) } }
-        if context.can("finish") && OkeyClassicRules.canFinish(hand, with: tile.id, okey: view.okey) { Button("Bitir") { throwTile(tile.id, finish: true) } }
+        if context.can("finish") && finishable.contains(tile.id) { Button("Bitir") { throwTile(tile.id, finish: true) } }
         if column > 0 { Button("Sola taşı") { arrange(OkeyClassicRack.move(layout, id: tile.id, to: cell - 1)) } }
         if column < OkeyClassicRack.columns - 1 { Button("Sağa taşı") { arrange(OkeyClassicRack.move(layout, id: tile.id, to: cell + 1)) } }
         Button(cell < OkeyClassicRack.columns ? "Alt sıraya taşı" : "Üst sıraya taşı") {
@@ -426,7 +433,7 @@ private struct OkeyBoard: View {
         guard handIDs.contains(id), !context.busy else { return }
         if finish {
             guard context.can("finish") else { return }
-            guard OkeyClassicRules.canFinish(hand, with: id, okey: view.okey) else {
+            guard finishable.contains(id) || OkeyClassicRules.canFinish(hand, with: id, okey: view.okey) else {
                 notice = "Bu taşı atınca el bitmiyor."
                 GameHaptics.refused()
                 return

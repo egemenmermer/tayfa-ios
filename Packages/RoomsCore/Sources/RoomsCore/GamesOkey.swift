@@ -193,8 +193,17 @@ public extension GameState {
         guard let seat = okeySeat(round: round) else { return "Koltuk \(round + 1)" }
         return seat.userId == me ? "Sen" : seat.name
     }
-    /// Rack storage key for this table and round (desktop `rooms-okey-rack:<owner>:<history>:<user>`).
-    func okeyRackKey(me: String) -> String { "rooms-okey-rack:\(ownerId):\(history.count):\(me)" }
+    /// The round number: the last recorded hand + 1 while a round runs, that hand once it is over. Unlike
+    /// `history.count` it keeps growing after the service trims the history (`GAME_HISTORY_LIMIT`).
+    var okeyRound: Int {
+        let last = history.last?.hand ?? 0
+        return status == .playing ? last + 1 : last
+    }
+    /// Rack storage key for this table and round. Tile ids repeat every deal, so the key carries the round and the
+    /// gösterge (a new table from the same owner restarts its hand numbers).
+    func okeyRackKey(_ view: OkeyClassicView, me: String) -> String {
+        "rooms-okey-rack:\(ownerId):\(okeyRound):\(view.indicator?.id ?? "-"):\(me)"
+    }
 }
 
 // MARK: - Faces
@@ -532,8 +541,9 @@ public struct OkeyClassicControls: Equatable, Sendable {
     /// Drag targets: a tile may be thrown at all right now.
     public var canThrow: Bool { discard || finishTileID != nil }
 
-    /// `finisher`: `OkeyClassicControls.finisher(view)` (computed once per rack; it runs the finish search).
-    public init(view: OkeyClassicView?, legalActions: [String], busy: Bool, selected: String?, finisher: String?) {
+    /// `finisher`: `OkeyClassicControls.finisher(view)` and `finishable`: `OkeyClassicControls.finishable(view)`, both
+    /// computed once per rack (they run the finish search); without `finishable` the selected tile is checked here.
+    public init(view: OkeyClassicView?, legalActions: [String], busy: Bool, selected: String?, finisher: String?, finishable: Set<String>? = nil) {
         let live = !busy && view.map { !$0.ended && !$0.spectator } == true
         let legal = Set(live ? legalActions : [])
         let hand = view?.hand ?? []
@@ -542,12 +552,19 @@ public struct OkeyClassicControls: Equatable, Sendable {
         takeLeft = legal.contains("draw") && view?.leftTop != nil
         discard = legal.contains("discard") && selectedInHand != nil
         if legal.contains("finish"), let view {
-            if let selectedInHand, OkeyClassicRules.canFinish(hand, with: selectedInHand, okey: view.okey) { finishTileID = selectedInHand }
+            if let selectedInHand, finishable?.contains(selectedInHand) ?? OkeyClassicRules.canFinish(hand, with: selectedInHand, okey: view.okey) {
+                finishTileID = selectedInHand
+            }
             else { finishTileID = finisher.flatMap { id in hand.contains { $0.id == id } ? id : nil } }
         } else { finishTileID = nil }
         showIndicator = legal.contains("show-indicator")
     }
 
+    /// Every tile whose discard finishes the viewer's own rack on their discard step.
+    public static func finishable(_ view: OkeyClassicView) -> Set<String> {
+        guard view.myTurn, view.stage == .discard, let hand = view.hand, hand.count == 15 else { return [] }
+        return Set(hand.map(\.id).filter { OkeyClassicRules.canFinish(hand, with: $0, okey: view.okey) })
+    }
     /// A finishing tile for the viewer's own 15-tile rack on their discard step, else nil.
     public static func finisher(_ view: OkeyClassicView) -> String? {
         guard view.myTurn, view.stage == .discard, let hand = view.hand else { return nil }
