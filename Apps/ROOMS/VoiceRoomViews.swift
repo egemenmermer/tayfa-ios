@@ -15,7 +15,7 @@ struct VoiceDockView: View {
                         Text(room.name).font(.subheadline.weight(.semibold)).lineLimit(1)
                     }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel("\(room.name) odasını aç. \(media.status)")
-                RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.connected || media.microphoneBusy || media.audioInterrupted || media.audioNeedsResume)
+                RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.canToggleMicrophone)
                 RoomIconControl(label: media.camera.isOn ? "Kamerayı kapat" : "Kamerayı aç", icon: media.camera.isOn ? "video.fill" : "video.slash", selected: media.camera.isOn) { Task { await media.toggleCamera() } }.disabled(!media.connected || media.camera.busy || media.audioInterrupted)
                 if media.canChooseReceiver {
                     RoomIconControl(label: media.speakerPreferred ? "Ahizeye geç" : "Hoparlöre geç", icon: media.speakerPreferred ? "speaker.wave.3.fill" : "iphone", selected: media.speakerPreferred) { media.setSpeakerPreferred(!media.speakerPreferred) }
@@ -46,7 +46,7 @@ struct RoomBottomControls: View {
     var body: some View {
         HStack(spacing: 9) {
             RoomIconControl(label: media.camera.isOn ? "Kamerayı kapat" : "Kamerayı aç", icon: media.camera.isOn ? "video.fill" : "video.slash", selected: media.camera.isOn) { Task { await media.toggleCamera() } }.disabled(!media.connected || media.camera.busy || media.audioInterrupted)
-            RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.connected || media.microphoneBusy || media.audioInterrupted || media.audioNeedsResume)
+            RoomIconControl(label: media.muted ? "Mikrofonu aç" : "Mikrofonu kapat", icon: media.muted ? "mic.slash" : "mic", selected: !media.muted) { Task { await media.toggleMicrophone() } }.disabled(!media.canToggleMicrophone)
             RoomIconControl(label: media.hearingMuted ? "Oda sesini aç" : "Oda sesini kapat", icon: media.hearingMuted ? "headphones.slash" : "headphones", selected: !media.hearingMuted) { media.toggleHearing() }.disabled(!media.connected)
             RoomIconControl(label: media.sharingScreen ? "Ekran paylaşımını durdur" : "Ekranımı paylaş", icon: media.sharingScreen ? "rectangle.on.rectangle.slash" : "rectangle.on.rectangle", selected: media.sharingScreen) {
                 if media.sharingScreen { media.stopScreenShare() } else { media.startScreenShare() }
