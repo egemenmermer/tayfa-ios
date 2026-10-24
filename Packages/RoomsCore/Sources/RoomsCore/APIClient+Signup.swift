@@ -77,7 +77,7 @@ public enum SignupInput {
     }
     public static func username(_ raw: String) -> String? {
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard (2...32).contains(value.count), value.range(of: #"^[\p{L}\p{N}_.-]+$"#, options: .regularExpression) != nil else { return nil }
+        guard (2...32).contains(value.count), value.range(of: #"^[\p{L}0-9_.-]+$"#, options: .regularExpression) != nil else { return nil }
         return value
     }
     public static func password(_ raw: String) -> Bool { raw.count >= minimumPassword && raw.count <= 256 }
@@ -181,8 +181,8 @@ extension APIClient {
         case "INVITE_NOT_FOUND": return .invite(.notFound)
         case "INVITE_EXPIRED": return .invite(.expired)
         case "INVITE_REVOKED": return .invite(.revoked)
-        // A retry after a lost answer finds its own single-use code spent: the account may already exist.
-        case "INVITE_ALREADY_CLAIMED": return registering ? .uncertain : .invite(.full)
+        // A share link out of uses. For an approval code (only this phone holds it) the broker reads it as `uncertain`.
+        case "INVITE_ALREADY_CLAIMED": return .invite(.full)
         case "RATE_LIMITED": return .rateLimited
         default: break
         }

@@ -130,7 +130,7 @@ final class SignupAPITests: XCTestCase {
             (409, #"{"error":"OperationFailed"}"#, .emailTaken),
             (404, #"{"error":"INVITE_NOT_FOUND"}"#, .invite(.notFound)),
             (410, #"{"error":"INVITE_EXPIRED"}"#, .invite(.expired)),
-            (409, #"{"error":"INVITE_ALREADY_CLAIMED"}"#, .uncertain),
+            (409, #"{"error":"INVITE_ALREADY_CLAIMED"}"#, .invite(.full)),
             (400, #"{"error":"CompromisedPassword"}"#, .weakPassword),
             (501, #"{"error":"INVITE_PROVISIONING_UNAVAILABLE"}"#, .provisioningUnavailable),
             (429, "{}", .rateLimited),
@@ -160,7 +160,7 @@ final class SignupAPITests: XCTestCase {
         XCTAssertEqual(SignupInput.email("  a@b.co "), "a@b.co")
         XCTAssertNil(SignupInput.email("not-an-email"))
         XCTAssertEqual(SignupInput.username(" Ayşe_1.k-2 "), "Ayşe_1.k-2")
-        XCTAssertNil(SignupInput.username("a")); XCTAssertNil(SignupInput.username("with space")); XCTAssertNil(SignupInput.username(String(repeating: "x", count: 33)))
+        XCTAssertNil(SignupInput.username("ayşe²")); XCTAssertNil(SignupInput.username("a")); XCTAssertNil(SignupInput.username("with space")); XCTAssertNil(SignupInput.username(String(repeating: "x", count: 33)))
         XCTAssertFalse(SignupInput.password("1234567")); XCTAssertTrue(SignupInput.password("12345678"))
     }
 }
@@ -322,6 +322,18 @@ final class PendingSignupTests: XCTestCase {
         let broken = MemoryStore(Data("{\"version\":1}".utf8))
         let none = await PendingSignupBroker(origin: origin, store: broken, service: FakeService()).snapshot()
         XCTAssertNil(none); XCTAssertNil(broken.stored)
+    }
+
+    func testSpentApprovalCodeIsReportedAsUncertain() async throws {
+        let service = FakeService()
+        service.requestResults = [.success(ticket)]; service.polls = [poll(.approved, code: approvalCode)]
+        service.registerResult = .failure(.invite(.full))
+        let broker = PendingSignupBroker(origin: origin, store: MemoryStore(), service: service)
+        _ = try await broker.request(email: "a@b.co", password: "secret-pass", username: "ayse")
+        let shown = waiting(await broker.check())
+        XCTAssertEqual(shown?.error, SignupError.uncertain.errorDescription)
+        do { _ = try await broker.complete(email: nil, password: "secret-pass"); XCTFail("expected error") }
+        catch { XCTAssertEqual(error as? SignupError, .uncertain) }
     }
 
     func testCompleteWithoutApprovalIsRefused() async throws {

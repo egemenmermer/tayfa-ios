@@ -209,10 +209,13 @@ public actor PendingSignupBroker {
         let token: String
         do { token = try await service.register(email: registration.email, password: registration.password, username: registration.username, inviteCode: registration.inviteCode) }
         catch {
-            self.error = (error as? LocalizedError)?.errorDescription ?? SignupError.unavailable.errorDescription
+            // The approval code is single-use and only this phone holds it: "already claimed" means a lost answer to an
+            // earlier attempt, so the account may already exist.
+            let failure: Error = error as? SignupError == .invite(.full) ? SignupError.uncertain : error
+            self.error = (failure as? LocalizedError)?.errorDescription ?? SignupError.unavailable.errorDescription
             // A wrong password guess is not kept for the next attempt.
             password = nil
-            throw error
+            throw failure
         }
         // The account exists and the code is spent: forget everything now, so a failed sign-in afterwards cannot leave
         // a request that only fails again.
