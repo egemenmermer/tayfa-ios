@@ -37,7 +37,7 @@ There is no public App Store build. To use it, build it with your own Apple deve
 - **Cinema hall:** live TV, films, series and YouTube watched together with the community, a shared queue, remote and host tools, hall chat, Picture in Picture and lock-screen controls.
 - **Room activities:** whiteboard with live cursors; DJ history, shared playlists and synced lyrics.
 
-**Desktop only for now:** Kıraathane games, soundboard, server settings and roles, cinema setup and remote control. The interface is in Turkish; an English version is in progress.
+**Desktop only for now:** soundboard, server settings and roles, cinema setup and remote control. The interface is in Turkish; an English version is in progress.
 
 ## Build and run
 
@@ -126,7 +126,7 @@ App Store'da herkese açık bir sürüm yok. Kullanmak için kendi Apple gelişt
 - **Sinema salonu:** canlı TV, film, dizi ve YouTube'u toplulukla aynı anda izle; ortak sıra, kumanda ve ev sahibi araçları, salon sohbeti, resim içinde resim ve kilit ekranı kontrolleri.
 - **Oda etkinlikleri:** canlı imleçli beyaz tahta; DJ geçmişi, ortak listeler ve senkron şarkı sözleri.
 
-**Şimdilik yalnızca masaüstünde:** Kıraathane oyunları, soundboard, sunucu ayarları ve roller, sinema kurulumu ve uzaktan kontrol. Arayüz Türkçe; İngilizce sürüm hazırlanıyor.
+**Şimdilik yalnızca masaüstünde:** soundboard, sunucu ayarları ve roller, sinema kurulumu ve uzaktan kontrol. Arayüz Türkçe; İngilizce sürüm hazırlanıyor.
 
 ### Derleme
 
