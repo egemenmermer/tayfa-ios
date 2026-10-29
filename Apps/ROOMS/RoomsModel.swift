@@ -487,6 +487,8 @@ import RoomsCore
         guard let api, let user else { return nil }
         return WatchTogetherModel(api: api, roomID: roomID, me: user.id)
     }
+    /// Shares one activity-room observer per text channel between its poll cards (F07).
+    private(set) lazy var chatPollHub = ChatPollHub { [unowned self] in self.watchTogether(roomID: $0) }
     func loadOwnProfile() async throws -> OwnProfile {
         guard let api else { throw RoomsError.expired }
         return try await api.ownProfile()

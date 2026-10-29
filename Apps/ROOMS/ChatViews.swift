@@ -160,7 +160,7 @@ struct ChatConversationView: View {
                                 openProfile: { viewingProfile = ProfileRequest(id: $0) },
                                 openFile: { viewingAttachment = FileRequest(attachment: $0, message: $1) },
                                 openReply: { viewingReply = ReplyRequest(id: $0, channelID: $1) },
-                                edit: { editingMessage = $0 }, delete: { deletingMessage = $0 }, react: { reactingMessage = $0 })
+                                edit: { editingMessage = $0 }, delete: { deletingMessage = $0 }, react: { reactingMessage = $0 }, pollHub: model?.chatPollHub)
                                 .id(message.id)
                                 .background { GeometryReader { geometry in Color.clear.preference(key: MessageFrameKey.self, value: [message.id: geometry.frame(in: .named("chat-scroll"))]) } }
                         }

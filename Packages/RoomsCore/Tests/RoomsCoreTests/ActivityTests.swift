@@ -61,3 +61,72 @@ final class ActivityTests: XCTestCase {
         XCTAssertEqual(ActivityError(code: "SESSION_HOST_REQUIRED").localizedDescription, "Bunu yalnızca oturumun hostu yapabilir.")
     }
 }
+
+final class ChatPollTests: XCTestCase {
+    private let id = "Ab3dEf6hIj9k"
+    private func room(polls: String, roomID: String = "chan") throws -> ActivityRoom {
+        let json = #"""
+        {"protocolVersion":1,"serverTimeMs":1,"room":{"roomId":"\#(roomID)","revision":9,
+         "participants":[{"userId":"me","displayName":"Ben","joinedAt":1,"lastSeenAt":1,"canControl":false},
+                         {"userId":"mod","displayName":"Mod","joinedAt":1,"lastSeenAt":1,"canControl":true}],
+         "timeline":{"playing":false,"positionSec":0,"rate":1,"effectiveServerTimeMs":1,"epoch":0},
+         "queue":[],"polls":\#(polls),"whiteboard":[]}}
+        """#
+        return try JSONDecoder().decode(ActivityResponse.self, from: Data(json.utf8)).room
+    }
+    private func poll(votes: String = #"{"me":"o2","a":"o2","b":"o1"}"#, closed: Bool = false, createdBy: String = "a") -> String {
+        #"[{"id":"\#(id)","question":"Akşam ne yiyelim?","options":[{"id":"o1","label":"Pizza"},{"id":"o2","label":"Kebap"},{"id":"o3","label":"Çorba"}],"votes":\#(votes),"createdBy":"\#(createdBy)","closed":\#(closed)}]"#
+    }
+
+    func testParsesTheDesktopMessageForBothLanguages() {
+        XCTAssertEqual(ChatPoll.pollID(in: "📊 Anket: Akşam ne yiyelim? — Tayfa’nın yeni sürümünde oy ver. #\(id)"), id)
+        XCTAssertEqual(ChatPoll.pollID(in: "  📊 Poll: Dinner? — vote in the latest Tayfa. #\(id)\n"), id)
+        XCTAssertEqual(ChatPoll.pollID(in: "📊 x #\(id)"), id)
+        XCTAssertEqual(ChatPoll.fallback("📊 Anket: Akşam ne yiyelim? — Tayfa’nın yeni sürümünde oy ver. #\(id)"), "Anket: Akşam ne yiyelim? — Tayfa’nın yeni sürümünde oy ver.")
+    }
+    func testMalformedAndForeignMessagesStayPlainText() {
+        for content in ["", "merhaba", "📊 Anket #\(id) ve devamı", "alıntı 📊 Anket: x #\(id)", "> 📊 Anket: x #\(id)",
+                        "📊 Anket: x #Ab3dEf6hIj9", "📊 Anket: x #Ab3dEf6hIj9kL", "📊 Anket: x #Ab3dEf6hIj9_", "📊 Anket: x #Ab3dEf6hIj9ğ",
+                        "📊 Anket: x Ab3dEf6hIj9k", "📊 Anket: x#\(id)", "📊 #\(id)", "📊  #\(id)", "📊Anket: x #\(id)", "📊 Anket: x #\(id) "
+                            + "https://example.com", "https://static.klipy.com/a/b.gif"] {
+            XCTAssertNil(ChatPoll.pollID(in: content), content)
+        }
+        XCTAssertEqual(ChatPoll.fallback("merhaba"), "merhaba")
+    }
+    func testBuildsVoteAndCloseRequestsForTheActivityProtocol() throws {
+        let command = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let vote = try XCTUnwrap(ChatPoll.voteRequest(pollID: id, optionID: "o2", commandID: command, expectedRevision: 9))
+        XCTAssertEqual(vote["protocolVersion"], .number(1)); XCTAssertEqual(vote["expectedRevision"], .number(9))
+        XCTAssertEqual(vote["commandId"], .string("00000000-0000-0000-0000-000000000002"))
+        XCTAssertEqual(vote["command"]["type"], .string("poll.vote"))
+        XCTAssertEqual(vote["command"]["pollId"], .string(id)); XCTAssertEqual(vote["command"]["optionId"], .string("o2"))
+        XCTAssertEqual(ChatPoll.closeRequest(pollID: id, commandID: command, expectedRevision: 3)?["command"]["type"], .string("poll.close"))
+        XCTAssertNil(ChatPoll.voteRequest(pollID: "short", optionID: "o1", commandID: command, expectedRevision: 1))
+        XCTAssertNil(ChatPoll.voteRequest(pollID: id, optionID: "", commandID: command, expectedRevision: 1))
+    }
+    func testSummaryComesFromTheSnapshotOnly() throws {
+        guard case .live(let summary) = ChatPollPhase.resolve(room: try room(polls: poll()), channelID: "chan", pollID: id, me: "me", failure: nil) else { return XCTFail("not live") }
+        XCTAssertEqual(summary.question, "Akşam ne yiyelim?"); XCTAssertEqual(summary.voters, 3); XCTAssertEqual(summary.myVote, "o2")
+        XCTAssertEqual(summary.options.map(\.count), [1, 2, 0]); XCTAssertEqual(summary.options.map(\.percent), [33, 67, 0])
+        XCTAssertEqual(summary.options.map(\.mine), [false, true, false])
+        XCTAssertFalse(summary.canClose); XCTAssertTrue(summary.canVote("o3")); XCTAssertFalse(summary.canVote("zzz"))
+        XCTAssertEqual(summary.result, "Kebap · 2 oy")
+    }
+    func testClosedPollsAndCloseRights() throws {
+        let closed = try room(polls: poll(closed: true))
+        guard case .live(let summary) = ChatPollPhase.resolve(room: closed, channelID: "chan", pollID: id, me: "mod", failure: nil) else { return XCTFail("not live") }
+        XCTAssertTrue(summary.closed); XCTAssertFalse(summary.canVote("o1")); XCTAssertFalse(summary.canClose)
+        let open = try room(polls: poll(votes: "{}"))
+        guard case .live(let moderated) = ChatPollPhase.resolve(room: open, channelID: "chan", pollID: id, me: "mod", failure: nil),
+              case .live(let own) = ChatPollPhase.resolve(room: try room(polls: poll(createdBy: "me")), channelID: "chan", pollID: id, me: "me", failure: nil) else { return XCTFail("not live") }
+        XCTAssertTrue(moderated.canClose); XCTAssertTrue(own.canClose)
+        XCTAssertEqual(moderated.result, "Henüz oy yok"); XCTAssertEqual(moderated.options.map(\.percent), [0, 0, 0])
+    }
+    func testLoadingNotFoundAndErrorStates() throws {
+        XCTAssertEqual(ChatPollPhase.resolve(room: nil, channelID: "chan", pollID: id, me: "me", failure: nil), .loading)
+        XCTAssertEqual(ChatPollPhase.resolve(room: nil, channelID: "chan", pollID: id, me: "me", failure: "Bağlantı kurulamadı"), .failed("Bağlantı kurulamadı"))
+        XCTAssertEqual(ChatPollPhase.resolve(room: try room(polls: "[]"), channelID: "chan", pollID: id, me: "me", failure: nil), .notFound)
+        // A snapshot of another channel's room never shows this message's poll.
+        XCTAssertEqual(ChatPollPhase.resolve(room: try room(polls: poll(), roomID: "other"), channelID: "chan", pollID: id, me: "me", failure: nil), .loading)
+    }
+}
