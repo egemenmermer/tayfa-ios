@@ -42,6 +42,8 @@ struct MessageCardView: View {
     let delete: (ChatMessage) -> Void
     /// Opens the full reaction picker; nil hides "Diğer tepkiler".
     var react: ((ChatMessage) -> Void)? = nil
+    /// Renders desktop poll messages as live cards; nil keeps them as plain text.
+    var pollHub: ChatPollHub? = nil
     private var busy: Bool { chat.actionBusy.contains(message.id) }
     @ObservedObject private var safety = SafetyCenter.shared
     @State private var revealed = false
@@ -79,6 +81,11 @@ struct MessageCardView: View {
         }
         .alert(notice?.title ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) { Button("Tamam") {} } message: { Text(notice?.message ?? "") }
     }
+    /// A poll id only for server text channels (not DMs), as the desktop does.
+    private var pollID: String? {
+        guard pollHub != nil, let channel = ([chat.selected] + chat.channels.map(Optional.some)).compactMap({ $0 }).first(where: { $0.id == message.channelID }), !channel.isDirect else { return nil }
+        return ChatPoll.pollID(in: message.content)
+    }
     private var copyLink: URL? { MessageLinks.first(in: chat.displayContent(message)) }
     private var card: some View {
         HStack(alignment: .top, spacing: 11) {
@@ -100,6 +107,7 @@ struct MessageCardView: View {
                     }.buttonStyle(.plain).foregroundStyle(.secondary)
                 }
                 if let gif = MessageMarkup.gifURL(message.content) { KlipyMessageGif(url: gif) }
+                else if let pollID, let pollHub { ChatPollCard(hub: pollHub, channelID: message.channelID, pollID: pollID, content: message.content) }
                 else if !message.content.isEmpty { MessageTextView(chat: chat, message: message) }
                 if message.edited { Text("düzenlendi").font(.caption2).foregroundStyle(.secondary) }
                 ForEach(message.attachments) { attachment in
@@ -537,5 +545,120 @@ struct ReportSheet: View {
                     }
                 }
         }.interactiveDismissDisabled(sending)
+    }
+}
+
+// MARK: Polls in text channels (F07)
+
+/// One activity-room observer per channel, shared by every visible poll card of that channel; stops with the last card.
+@MainActor final class ChatPollHub {
+    private var entries: [String: (model: WatchTogetherModel, users: Int)] = [:]
+    private let make: (String) -> WatchTogetherModel?
+    init(make: @escaping (String) -> WatchTogetherModel?) { self.make = make }
+    func acquire(_ channelID: String) -> WatchTogetherModel? {
+        if var entry = entries[channelID] { entry.users += 1; entries[channelID] = entry; return entry.model }
+        guard let model = make(channelID) else { return nil }
+        entries[channelID] = (model, 1); model.start()
+        return model
+    }
+    func release(_ channelID: String) {
+        guard var entry = entries[channelID] else { return }
+        entry.users -= 1
+        if entry.users > 0 { entries[channelID] = entry } else { entry.model.stop(); entries[channelID] = nil }
+    }
+}
+
+/// A desktop poll message: live question, options, results and vote; the room is always the message's own channel.
+struct ChatPollCard: View {
+    let hub: ChatPollHub
+    let channelID: String
+    let pollID: String
+    let content: String
+    @State private var watch: WatchTogetherModel?
+    var body: some View {
+        Group {
+            if let watch { ChatPollBody(watch: watch, channelID: channelID, pollID: pollID, content: content) }
+            else { ChatPollFrame(content: content, status: "Anket şu an açılamıyor.", retry: nil) }
+        }
+        .onAppear { if watch == nil { watch = hub.acquire(channelID) } }
+        .onDisappear { if watch != nil { hub.release(channelID); watch = nil } }
+    }
+}
+
+private struct ChatPollFrame: View {
+    let content: String
+    let status: String
+    let retry: (() -> Void)?
+    var loading = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("ANKET", systemImage: "chart.bar").font(.caption2.bold()).foregroundStyle(Palette.accent)
+            Text(ChatPoll.fallback(content)).font(.subheadline).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                if loading { ProgressView().controlSize(.small) }
+                Text(status).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }.accessibilityElement(children: .combine)
+            if let retry { Button("Yeniden dene", systemImage: "arrow.clockwise", action: retry).font(.footnote).buttonStyle(.bordered).controlSize(.small) }
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Palette.surface, in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct ChatPollBody: View {
+    @ObservedObject var watch: WatchTogetherModel
+    let channelID: String
+    let pollID: String
+    let content: String
+    @State private var confirmClose = false
+    var body: some View {
+        switch ChatPollPhase.resolve(room: watch.room, channelID: channelID, pollID: pollID, me: watch.me, failure: watch.failure) {
+        case .loading: ChatPollFrame(content: content, status: "Anket yükleniyor…", retry: nil, loading: true)
+        case .notFound: ChatPollFrame(content: content, status: "Bu anket bulunamadı. Silinmiş ya da başka bir kanala ait olabilir.", retry: nil)
+        case .failed(let reason): ChatPollFrame(content: content, status: reason, retry: { watch.stop(); watch.start() })
+        case .live(let poll): live(poll)
+        }
+    }
+    private func live(_ poll: ChatPollSummary) -> some View {
+        let locked = poll.closed || watch.busy || !watch.reachable
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("ANKET", systemImage: "chart.bar").font(.caption2.bold()).foregroundStyle(Palette.accent)
+                Spacer(minLength: 0)
+                Text(poll.closed ? "Oylama kapalı" : "Oylama açık").font(.caption2).foregroundStyle(.secondary)
+            }
+            Text(poll.question).font(.headline).fixedSize(horizontal: false, vertical: true)
+            ForEach(poll.options) { option in
+                Button { watch.run(.pollVote(pollID: poll.pollID, optionID: option.id)) } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: option.mine ? "checkmark.circle.fill" : "circle").foregroundStyle(option.mine ? Palette.accent : .secondary).accessibilityHidden(true)
+                            Text(option.label).foregroundStyle(.primary).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Text("\(option.count) oy" + (poll.voters > 0 ? " · \(option.percent)%" : "")).font(.caption).foregroundStyle(.secondary).fixedSize()
+                        }
+                        GeometryReader { geometry in
+                            Capsule().fill(Palette.accent.opacity(0.15)).overlay(alignment: .leading) {
+                                Capsule().fill(Palette.accent).frame(width: geometry.size.width * Double(option.percent) / 100)
+                            }
+                        }.frame(height: 5)
+                    }.padding(.vertical, 6).frame(minHeight: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).disabled(locked)
+                .accessibilityLabel(option.label).accessibilityValue("\(option.count) oy" + (option.mine ? ", seçili" : "")).accessibilityAddTraits(option.mine ? .isSelected : [])
+            }
+            if !poll.closed && !watch.reachable { Text("Anket bağlantısı bekleniyor.").font(.caption).foregroundStyle(.secondary) }
+            if let failure = watch.failure, watch.reachable { Text(failure).font(.caption).foregroundStyle(.red) }
+            HStack {
+                Text(poll.closed ? "Sonuç: \(poll.result)" : poll.voters > 0 ? "\(poll.voters) kişi oy verdi" : "Henüz oy yok").font(.caption).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                if poll.canClose { Button("Anketi kapat", systemImage: "lock") { confirmClose = true }.font(.caption).disabled(watch.busy || !watch.reachable).frame(minHeight: 44) }
+            }
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Palette.surface, in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain).accessibilityLabel("Anket: \(poll.question)")
+        .confirmationDialog("Oylama kapatılsın mı?", isPresented: $confirmClose, titleVisibility: .visible) {
+            Button("Anketi kapat", role: .destructive) { watch.run(.pollClose(pollID: poll.pollID)) }
+            Button("Oylama sürsün", role: .cancel) {}
+        } message: { Text("Kapatılan ankette kimse oy veremez veya oyunu değiştiremez.") }
     }
 }
