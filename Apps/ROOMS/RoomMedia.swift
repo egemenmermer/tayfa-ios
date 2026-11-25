@@ -299,12 +299,14 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             await self.disconnect(failure: message, loss: loss)
         }
     }
-    /// LiveKit's reason for ending the connection, reduced to what decides a rejoin.
+    /// LiveKit's reason for ending the connection, reduced to what decides a rejoin. `.cancelled` stays a lost
+    /// connection: the app's own disconnects never get here (`room` is cleared first), and LiveKit also reports a
+    /// failed reconnect that ended in a `CancellationError` as `.cancelled`.
     private static func loss(_ error: LiveKitError?) -> RoomLoss {
         switch error?.type {
         case .participantRemoved?, .insufficientPermissions?: .removed
         case .duplicateIdentity?: .replaced
-        case .roomDeleted?, .cancelled?: .closed
+        case .roomDeleted?: .closed
         default: .connection
         }
     }
