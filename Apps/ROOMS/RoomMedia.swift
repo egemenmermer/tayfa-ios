@@ -224,9 +224,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         defer { if !cuesAudible { stopCues() } }
         // Only an interruption that a lost route started alone may be ended by the route coming back.
         if began { interruptedByRoute = routeLost && (interruptedByRoute || !recovery.interrupted) } else { interruptedByRoute = false }
-        let now = ProcessInfo.processInfo.systemUptime
-        if began { rejoin.interruptionBegan(now: now) } else { rejoin.interruptionEnded(now: now) }
-        if began { recovery.interruptionBegan(microphoneEnabled: !muted) } else { recovery.interruptionEnded(shouldResume: shouldResume, now: now) }
+        if began { rejoin.interruptionBegan(now: Self.rejoinClock()) } else { rejoin.interruptionEnded(now: Self.rejoinClock()) }
+        if began { recovery.interruptionBegan(microphoneEnabled: !muted) } else { recovery.interruptionEnded(shouldResume: shouldResume, now: ProcessInfo.processInfo.systemUptime) }
         audioInterrupted = recovery.interrupted; audioNeedsResume = recovery.needsAudioResume
         diagnostics.record(began ? (routeLost ? .interruptionRoute : .interruption) : .interruptionEnded)
         guard room != nil else {
@@ -256,6 +255,9 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         do { try AudioManager.shared.setEngineAvailability(.default); audioNeedsResume = false; audioNotice = nil; updateRoute(); restoreInterruptedMicrophone() }
         catch { diagnostics.record(.audioFailed); audioNotice = "Ses sürdürülemedi. Odaya tekrar katıl." }
     }
+    /// The clock of every `RoomRejoin` call. Unlike `systemUptime` it keeps counting while the iPhone sleeps, so an
+    /// hour in the pocket with the screen locked counts as an hour away.
+    private static func rejoinClock() -> TimeInterval { TimeInterval(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) / 1_000_000_000 }
     /// Starts the pending rejoin once it may: no interruption is on and, after a background loss, the app is in front.
     private func recoverLostRoom() {
         guard let microphone = rejoin.take(audioUsable: !audioInterrupted && !audioNeedsResume) else { return }
@@ -736,10 +738,9 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         // A phone call or a background period can cost the room; it comes back once unless someone ended it on purpose.
         let rejoins: Bool
         if failure != nil {
-            let now = ProcessInfo.processInfo.systemUptime
             rejoins = rejoin.lost(loss, established: recovery.phase == .connected || recovery.phase == .reconnecting,
-                                  voiceRoom: voiceRoom, duringInterruption: recovery.rejoinsLostConnection(now: now),
-                                  microphone: recovery.interruptedMicrophoneIntent || joinsWithMicrophone, now: now)
+                                  voiceRoom: voiceRoom, duringInterruption: recovery.rejoinsLostConnection(now: ProcessInfo.processInfo.systemUptime),
+                                  microphone: recovery.interruptedMicrophoneIntent || joinsWithMicrophone, now: Self.rejoinClock())
             if loss == .removed { diagnostics.record(.removed) } else if loss == .replaced { diagnostics.record(.replaced) }
         } else { rejoin.cancel(); rejoins = false }
         recovery.cancelRejoin()
@@ -882,7 +883,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         let keepCamera = !value && pictureInPictureActive && cameraTransport?.runsInBackground == true
         if let session = cameraSession { Task { await session.setForeground(value, keepRunning: keepCamera) } }
         diagnostics.record(value ? .foreground : .background)
-        let now = ProcessInfo.processInfo.systemUptime
+        let now = Self.rejoinClock()
         if value { rejoin.returned(now: now) }
         else { rejoin.wentToBackground(established: room != nil && (recovery.phase == .connected || recovery.phase == .reconnecting), now: now) }
         // iOS does not always report the end of an interruption; back in the app with no call, it is over.
@@ -1098,7 +1099,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     private func beginReconnect(_ room: Room) {
         updateCues(channel: room.name ?? "room", connected: false, roster: [])
         if let session = cameraSession { Task { await session.stop() } }
-        recovery.reconnect(now: ProcessInfo.processInfo.systemUptime); rejoin.reconnecting(now: ProcessInfo.processInfo.systemUptime)
+        recovery.reconnect(now: ProcessInfo.processInfo.systemUptime); rejoin.reconnecting(now: Self.rejoinClock())
         status = "Bağlantı kesildi. Yeniden deneniyor."
         guard reconnectTimeout == nil else { return }
         diagnostics.record(.reconnecting)

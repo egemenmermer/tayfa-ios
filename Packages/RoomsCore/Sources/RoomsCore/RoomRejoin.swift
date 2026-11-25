@@ -33,6 +33,8 @@ public enum RoomLoss: Equatable, Sendable {
 ///
 /// It cannot loop: only an established connection arms it, the pending rejoin is spent by the single join it starts,
 /// a join that fails before connecting never arms it again, and any explicit leave, join, move or call clears it.
+///
+/// Every `now` must come from one monotonic clock that keeps counting while the device sleeps.
 public struct RoomRejoin: Sendable {
     /// Covers the server's ping timeout and the transport's failure detection after the app resumes.
     public static let confirmAfterReturn: TimeInterval = 45
