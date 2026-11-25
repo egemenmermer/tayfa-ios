@@ -31,11 +31,11 @@ If the voice room is lost while the app is in the background, it comes back once
 - No rejoin after an explicit leave, a move, a DM call taking over, or sign-out.
 - No rejoin after a server decision: a moderator's "Sesten çıkar" or revoked access (`participantRemoved`), the same account joining from another device (`duplicateIdentity`), or a closed room. These now show their own message.
 - No rejoin after a safety teardown (a microphone or camera that could not be stopped).
-- The microphone comes back as the person left it. A deafened person stays deafened.
+- The microphone comes back as the person left it, unless they were away 10 minutes or longer (`RoomRejoin.longAbsence`). Away runs from leaving the app until returning to it. After a phone call, it is the length of the call. Then the room still comes back, but the microphone starts off and the voice dock says "Uzun süre uzakta kaldığın için mikrofonun kapalı açıldı." A microphone that was off stays off. A deafened person stays deafened.
 - It cannot loop. Only an established connection arms the rejoin. The single join spends it. A join that fails before connecting never arms it again.
 
 ## Headset removed and reconnected
 
 Removing a headset still deafens, mutes the microphone and mutes screen-share audio. The person turns sound and microphone back on themselves. Turning room sound back on now also restores screen-share audio that the removal muted. An input chosen in the audio settings that left with the headset is cleared, so it cannot steer the route. On iOS 17, a route can take the session away as an interruption (`routeDisconnected`). Such an interruption may never report its end. The headset's return now ends it and offers "Sesi sürdür".
 
-Still to check on a physical iPhone: Instagram/YouTube/music next to a room (speaker and headphones); joining while music plays; leaving the app with the microphone on and off and returning minutes later; a moderator disconnect while the app is in the background; wired and Bluetooth headset removed and reconnected; Sinema and chat video sound in and out of a room.
+Still to check on a physical iPhone: Instagram/YouTube/music next to a room (speaker and headphones); joining while music plays; leaving the app with the microphone on and off and returning after a few minutes (microphone as left) and after 10 minutes or more (microphone off, with the notice); a moderator disconnect while the app is in the background; wired and Bluetooth headset removed and reconnected; Sinema and chat video sound in and out of a room.

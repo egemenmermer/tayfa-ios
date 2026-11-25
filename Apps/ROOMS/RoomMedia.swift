@@ -81,8 +81,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     @Published private(set) var network: MediaDiagnostics.Network = .unknown
     struct AudioInput: Identifiable { let id: String; let name: String }
     private var recovery = MediaRecovery()
-    /// Joins the lost voice room again (`RoomRejoin`); the Bool is the microphone an interruption took away.
-    var onRoomRecovery: ((Bool) -> Void)?
+    /// Joins the lost voice room again (`RoomRejoin`), with the microphone the rule decided.
+    var onRoomRecovery: ((RoomRejoin.Microphone) -> Void)?
     /// LiveKit data handlers by topic; each feature registers its own (move signal, viewers, whiteboard cursors).
     private var dataHandlers: [String: (RoomDataPacket) -> Void] = [:]
     /// Who watches which screen share: viewer identity → presenter identity, from `rooms-watch-v1`.
@@ -224,7 +224,9 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         defer { if !cuesAudible { stopCues() } }
         // Only an interruption that a lost route started alone may be ended by the route coming back.
         if began { interruptedByRoute = routeLost && (interruptedByRoute || !recovery.interrupted) } else { interruptedByRoute = false }
-        if began { recovery.interruptionBegan(microphoneEnabled: !muted) } else { recovery.interruptionEnded(shouldResume: shouldResume, now: ProcessInfo.processInfo.systemUptime) }
+        let now = ProcessInfo.processInfo.systemUptime
+        if began { rejoin.interruptionBegan(now: now) } else { rejoin.interruptionEnded(now: now) }
+        if began { recovery.interruptionBegan(microphoneEnabled: !muted) } else { recovery.interruptionEnded(shouldResume: shouldResume, now: now) }
         audioInterrupted = recovery.interrupted; audioNeedsResume = recovery.needsAudioResume
         diagnostics.record(began ? (routeLost ? .interruptionRoute : .interruption) : .interruptionEnded)
         guard room != nil else {
@@ -737,7 +739,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             let now = ProcessInfo.processInfo.systemUptime
             rejoins = rejoin.lost(loss, established: recovery.phase == .connected || recovery.phase == .reconnecting,
                                   voiceRoom: voiceRoom, duringInterruption: recovery.rejoinsLostConnection(now: now),
-                                  microphone: recovery.interruptedMicrophoneIntent, now: now)
+                                  microphone: recovery.interruptedMicrophoneIntent || joinsWithMicrophone, now: now)
             if loss == .removed { diagnostics.record(.removed) } else if loss == .replaced { diagnostics.record(.replaced) }
         } else { rejoin.cancel(); rejoins = false }
         recovery.cancelRejoin()
@@ -882,7 +884,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         diagnostics.record(value ? .foreground : .background)
         let now = ProcessInfo.processInfo.systemUptime
         if value { rejoin.returned(now: now) }
-        else { rejoin.wentToBackground(established: room != nil && (recovery.phase == .connected || recovery.phase == .reconnecting)) }
+        else { rejoin.wentToBackground(established: room != nil && (recovery.phase == .connected || recovery.phase == .reconnecting), now: now) }
         // iOS does not always report the end of an interruption; back in the app with no call, it is over.
         if value, recovery.interrupted, !callObserver.calls.contains(where: { !$0.hasEnded }) {
             interruption(began: false, shouldResume: true)

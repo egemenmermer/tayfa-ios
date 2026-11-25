@@ -356,14 +356,15 @@ import RoomsCore
         }
     }
     /// `expand: false` keeps the current screen (a moderator's move must not take over the app).
-    func join(_ target: VoiceRoom, resumeInterruptedMicrophone: Bool = false, expand: Bool = true) {
+    /// `microphone` overrides how the microphone starts (an automatic rejoin decides it); nil uses `microphoneForJoin()`.
+    func join(_ target: VoiceRoom, microphone: Bool? = nil, expand: Bool = true) {
         guard let api, user != nil else { return }
         // A private call holds the media connection, as on desktop.
         if let reason = calls.voiceBlockReason { error = reason; return }
         if expand { roomExpanded = true }; roomPreview = nil
         if active?.id == target.id && media.connected { return }
         // The microphone as it was left: the room being switched from, else the saved choice (RC24).
-        let wantsMicrophone = resumeInterruptedMicrophone || media.microphoneForJoin()
+        let wantsMicrophone = microphone ?? media.microphoneForJoin()
         let ticket = roomEpoch.advance()
         let previous = roomTask; previous?.cancel()
         busy = true; error = nil
@@ -390,7 +391,10 @@ import RoomsCore
             self.media.onRoomRecovery = { [weak self] microphone in
                 guard let self, self.sessionEpoch.owns(login), self.roomEpoch.owns(ticket),
                       self.active?.id == target.id, self.user != nil, !self.busy else { return }
-                self.join(target, resumeInterruptedMicrophone: microphone, expand: false)
+                self.join(target, microphone: microphone == .on, expand: false)
+                if microphone == .offAfterLongAbsence, self.busy {
+                    self.showRoomNotice("Uzun süre uzakta kaldığın için mikrofonun kapalı açıldı.")
+                }
             }
             do {
                 let grant = try await api.grant(channel: target.id)
