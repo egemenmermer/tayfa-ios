@@ -559,16 +559,17 @@ import UIKit
 
     // MARK: Audio session, Now Playing and lock-screen controls
 
-    /// LiveKit owns the app's audio session. The hall holds a playout requirement, so leaving a voice room never
-    /// deactivates the session under the film, and the silent switch and the background do not mute it.
+    /// LiveKit decides when the app's audio session is needed (`RoomAudioSession` configures it). The hall holds a
+    /// playout requirement, so leaving a voice room never deactivates the session under the film, and the silent switch
+    /// and the background do not mute it.
     private func acquireAudio() {
         if audioRequirement == nil { audioRequirement = try? AudioManager.shared.acquireSessionRequirement(.playbackOnly) }
         preferMovieAudio()
     }
     private func releaseAudio() { try? audioRequirement?.release(); audioRequirement = nil }
     /// Without a voice room the hall asks for non-mixable movie playback (lock-screen controls, Picture in
-    /// Picture). While a voice room runs, LiveKit's call session is left alone: the film then plays on the call
-    /// route, possibly quieter and through voice processing, which is better than breaking the call.
+    /// Picture). While a voice room runs, the call session is left alone: the film then plays on the call route, and
+    /// because that session mixes with other apps the lock screen may not offer the film's controls.
     private func preferMovieAudio() {
         let session = AVAudioSession.sharedInstance()
         guard !AudioManager.shared.isEngineRunning, session.category != .playAndRecord else { return }

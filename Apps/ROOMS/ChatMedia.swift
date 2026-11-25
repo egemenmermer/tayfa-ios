@@ -243,8 +243,9 @@ private struct VideoPlayerScreen: UIViewControllerRepresentable {
     final class Coordinator { var audio: SessionRequirementHandle? }
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIViewController(context: Context) -> AVPlayerViewController {
-        // LiveKit owns the audio session: outside a voice room this makes it a playback session (speaker, sound
-        // with the silent switch on); inside one the call session stays as it is.
+        // LiveKit decides when the audio session is needed (`RoomAudioSession` configures it): outside a voice room
+        // this makes it a playback session (speaker, sound with the silent switch on); inside one the call session
+        // stays as it is.
         context.coordinator.audio = try? AudioManager.shared.acquireSessionRequirement(.playbackOnly)
         let controller = AVPlayerViewController(); controller.player = AVPlayer(url: url); controller.player?.play(); return controller
     }

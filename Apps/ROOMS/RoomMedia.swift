@@ -107,6 +107,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     private let playout = RoomPlayoutProcessor()
     override init() {
         super.init()
+        // Before any LiveKit audio starts, so the very first session already mixes with other apps.
+        RoomAudioSession.shared.install()
         playout.onActive = { [weak self] in self?.refreshAudio() }
         GameSounds.player = { [weak self] cue in self?.playGameCue(cue) }
         handleData(topic: WatchAnnouncement.topic) { [weak self] packet in self?.receiveWatch(packet) }
@@ -162,8 +164,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     func setSpeakerPreferred(_ value: Bool) {
         guard connected, !audioInterrupted, canChooseReceiver else { return }
         speakerPreferred = value
-        AudioManager.shared.audioSession.isSpeakerOutputPreferred = value
-        // Routing preferences only; LiveKit retains category and activation ownership.
+        // A routing preference only; the session keeps its category and stays active (`RoomAudioSession`).
+        RoomAudioSession.shared.preferSpeaker(value)
         do { try AVAudioSession.sharedInstance().setPreferredInput(nil); audioNotice = nil }
         catch { audioNotice = "Ses çıkışı değiştirilemedi. Sistem seçicisini kullan." }
         updateRoute()
@@ -490,7 +492,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     }
     // MARK: Game table cues
     /// Synthesized table cues (`GameCueTone`, desktop recipes) for the games of this voice room, heard only here.
-    /// They play like the room cues: an `AVAudioPlayer` inside the call session LiveKit owns (no category or
+    /// They play like the room cues: an `AVAudioPlayer` inside the call session (`RoomAudioSession`; no category or
     /// activation change, no second audio engine), so they mix with the voices instead of interrupting them.
     /// Outside a connected room nothing plays (an app-default session would stop other apps' audio).
     private var gameCuePlayers: [AVAudioPlayer] = []
@@ -558,9 +560,9 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
 
     // MARK: Settings preview
     private var previewPlayer: AVAudioPlayer?
-    /// LiveKit owns the audio session. Outside a voice room this holds a playback session for the preview
-    /// (speaker, audible with the silent switch on, other apps keep playing); inside one the call session
-    /// stays as it is. Released when the preview stops or ends.
+    /// LiveKit decides when the audio session is needed and `RoomAudioSession` what it is. Outside a voice room
+    /// this holds a playback session for the preview (speaker, audible with the silent switch on, other apps keep
+    /// playing); inside one the call session stays as it is. Released when the preview stops or ends.
     private var previewAudio: SessionRequirementHandle?
     private var previewEnd: PreviewEnd?
     private var previewGeneration: UInt64 = 0
@@ -651,7 +653,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             defaultAudioCaptureOptions: captureOptions(), adaptiveStream: true, dynacast: true))
         self.room = room; installCamera(room); status = "Odaya bağlanılıyor…"; error = nil
         recovery.beginJoin(now: ProcessInfo.processInfo.systemUptime); diagnostics.record(.joining)
-        AudioManager.shared.audioSession.isSpeakerOutputPreferred = speakerPreferred
+        RoomAudioSession.shared.preferSpeaker(speakerPreferred)
         connectTimeout = Task { [weak self, weak room] in
             try? await Task.sleep(for: .seconds(25))
             guard !Task.isCancelled, let self, let room, self.room === room,
@@ -672,6 +674,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         }
     }
     @discardableResult func disconnect(failure: String? = nil) async -> UInt64 {
+        // Before the engine stops, so playback that outlives the call (Sinema, a chat video) leaves the call category.
+        RoomAudioSession.shared.callEnded()
         // Before the reset below, so a deafened listener stays silent.
         updateCues(channel: nil, connected: false, roster: [])
         soundChannel = nil
@@ -1067,6 +1071,85 @@ struct RoomDataPacket: Sendable {
     /// The sending participant's identity; nil for server packets.
     let sender: String?
     let fromServer: Bool
+}
+
+/// The app's `AVAudioSession`: LiveKit decides when it is needed, `VoiceSessionPolicy` decides what it is.
+///
+/// The voice session mixes with other apps, so Instagram, YouTube or music no longer interrupt a voice room (which
+/// then let iOS suspend the app and the server drop it), and joining no longer stops them. LiveKit 2.17.0 has no
+/// option for that: its call presets leave `.mixWithOthers` out on purpose, `AudioManager.sessionConfiguration` is
+/// never read, and `AudioSessionEngineObserver` cannot be subclassed. Turning its automatic configuration off would
+/// also turn every `acquireSessionRequirement` (Sinema, chat videos, the settings preview) into a no-op. The legacy
+/// `customConfigureAudioSessionFunc` is the one hook every LiveKit session change passes through: engine start and
+/// stop, those requirement handles, and the speaker preference. LiveKit keeps the requirement bookkeeping and calls
+/// it at the same moments it would configure the session itself; this applies the same category, mode, IO buffer and
+/// activation steps as `AudioSessionEngineObserver.configureAudioSession`, plus `.mixWithOthers` before activation.
+///
+/// The hook runs inside LiveKit's session lock, on WebRTC's worker thread for engine events: it must not call back
+/// into `AudioManager`, so the speaker preference is kept here as well. Unlike LiveKit's own path it cannot report a
+/// failure to the engine; a session that could not be activated surfaces as an engine start error instead.
+final class RoomAudioSession: @unchecked Sendable {
+    static let shared = RoomAudioSession()
+    private let policy = OSAllocatedUnfairLock(initialState: VoiceSessionPolicy())
+    private let installed = OSAllocatedUnfairLock(initialState: false)
+    private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "ROOMS", category: "audio-session")
+    /// WebRTC's preferred IO buffer (`RTCAudioSessionHighPerformanceIOBufferDuration`, internal to LiveKit).
+    private static let ioBufferDuration: TimeInterval = 0.02
+    private init() {}
+
+    func install() {
+        guard installed.withLock({ value in defer { value = true }; return !value }) else { return }
+        AudioManager.shared.customConfigureAudioSessionFunc = { [self] new, old in
+            configure(new: Self.need(new), old: Self.need(old))
+        }
+    }
+    /// Speaker rather than receiver while nothing else is connected. Changing it on LiveKit too makes LiveKit run the
+    /// hook again, which applies the new routing without touching activation.
+    func preferSpeaker(_ value: Bool) {
+        policy.withLock { $0.speakerPreferred = value }
+        AudioManager.shared.audioSession.isSpeakerOutputPreferred = value
+    }
+    /// The voice room or call is ending. Playback that outlives it no longer needs the call category.
+    func callEnded() { policy.withLock { $0.callEnded() } }
+
+    private static func need(_ state: AudioManager.State) -> VoiceSessionPolicy.Need {
+        // LiveKit hands the legacy hook "1 local track" for recording and "1 remote track" for playout.
+        VoiceSessionPolicy.Need(playout: state.remoteTracksCount > 0, recording: state.localTracksCount > 0)
+    }
+    private func configure(new: VoiceSessionPolicy.Need, old: VoiceSessionPolicy.Need) {
+        let step = policy.withLock { $0.step(from: old, to: new) }
+        let session = AVAudioSession.sharedInstance()
+        switch step {
+        case .none: return
+        case .deactivate:
+            do { try session.setActive(false, options: .notifyOthersOnDeactivation) }
+            catch { log.error("Audio session deactivation failed: \(error.localizedDescription, privacy: .public)") }
+        case .configure(let configuration, let activate):
+            do {
+                try session.setCategory(Self.category(configuration.category), mode: Self.mode(configuration.mode), options: Self.options(configuration.options))
+                try session.setPreferredIOBufferDuration(Self.ioBufferDuration)
+                if activate { try session.setActive(true) }
+            } catch { log.error("Audio session configuration failed: \(error.localizedDescription, privacy: .public)") }
+        }
+    }
+    private static func category(_ category: VoiceSessionPolicy.Category) -> AVAudioSession.Category {
+        switch category { case .playback: .playback; case .playAndRecord: .playAndRecord }
+    }
+    private static func mode(_ mode: VoiceSessionPolicy.Mode) -> AVAudioSession.Mode {
+        switch mode { case .default: .default; case .spokenAudio: .spokenAudio }
+    }
+    private static func options(_ options: Set<VoiceSessionPolicy.Option>) -> AVAudioSession.CategoryOptions {
+        options.reduce(into: []) { result, option in
+            switch option {
+            case .mixWithOthers: result.insert(.mixWithOthers)
+            case .duckOthers: result.insert(.duckOthers)
+            case .allowBluetoothHFP: result.insert(.allowBluetoothHFP)
+            case .allowBluetoothA2DP: result.insert(.allowBluetoothA2DP)
+            case .allowAirPlay: result.insert(.allowAirPlay)
+            case .defaultToSpeaker: result.insert(.defaultToSpeaker)
+            }
+        }
+    }
 }
 
 /// Room playout hook: one buffer of everything heard (all tracks mixed) on LiveKit's audio thread.
