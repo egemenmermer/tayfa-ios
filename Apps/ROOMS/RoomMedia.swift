@@ -93,6 +93,10 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     private var hearingCarry = HearingCarry()
     /// The one automatic rejoin after a phone call or a background period cost the voice room.
     private var rejoin = RoomRejoin()
+    /// Screen-share audio that a removed headset muted; turning room sound back on restores it.
+    private var screenMutedByRoute = false
+    /// The current interruption was started by a disconnected route (iOS 17 `routeDisconnected`), not by a call.
+    private var interruptedByRoute = false
     /// Sees phone and FaceTime calls, so a call that ended without an interruption-end notice is noticed.
     private let callObserver = CXCallObserver()
     private var diagnostics = MediaDiagnostics()
@@ -122,15 +126,18 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         pictureInPicture.onActiveChange = { [weak self] active in self?.pictureInPictureChanged(active) }
         NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
             .sink { [weak self] notification in
-                let removed = (notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt) == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue
-                Task { @MainActor [weak self] in self?.routeChanged(removed: removed) }
+                let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+                let removed = reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue
+                let added = reason == AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue
+                Task { @MainActor [weak self] in self?.routeChanged(removed: removed, added: added) }
             }.store(in: &observers)
         NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
             .sink { [weak self] notification in
                 let began = (notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.began.rawValue
                 let options = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt) ?? 0
                 let resume = AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume)
-                Task { @MainActor [weak self] in self?.interruption(began: began, shouldResume: resume) }
+                let routeLost = (notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt) == AVAudioSession.InterruptionReason.routeDisconnected.rawValue
+                Task { @MainActor [weak self] in self?.interruption(began: began, shouldResume: resume, routeLost: routeLost) }
             }.store(in: &observers)
         NotificationCenter.default.publisher(for: AVAudioSession.mediaServicesWereResetNotification)
             .sink { [weak self] _ in Task { @MainActor [weak self] in self?.mediaServicesReset() } }.store(in: &observers)
@@ -178,11 +185,25 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         do { try session.setPreferredInput(input); audioNotice = nil; updateRoute() }
         catch { audioNotice = "Kulaklık seçilemedi. Sistem seçicisini kullan." }
     }
-    private func routeChanged(removed: Bool) {
+    private func routeChanged(removed: Bool, added: Bool) {
+        if removed {
+            // An input picked in the audio settings that left with the headset must not keep steering the route.
+            let session = AVAudioSession.sharedInstance()
+            if let preferred = session.preferredInput, !(session.availableInputs ?? []).contains(where: { $0.uid == preferred.uid }) {
+                try? session.setPreferredInput(nil)
+            }
+        }
         updateRoute(); diagnostics.record(removed ? .routeRemoved : .routeChanged)
+        // A route that took the session away (`routeDisconnected`) may never report the end; the headset's return
+        // ends it, and the person resumes the sound explicitly ("Sesi sürdür").
+        if added, interruptedByRoute, recovery.interrupted, !callObserver.calls.contains(where: { !$0.hasEnded }) {
+            interruption(began: false, shouldResume: false)
+        }
         guard room != nil, removed else { return }
         recovery.cancelMicrophoneRestore()
-        // Avoid unexpectedly sending a conversation through the loudspeaker.
+        // Avoid unexpectedly sending a conversation through the loudspeaker. Hearing coming back restores the
+        // screen-share audio muted here, but not one the person had muted already.
+        if !screenMuted { screenMutedByRoute = true }
         hearingMuted = true; hearingCarry.record(true); screenMuted = true; refreshAudio(); muteForAudioEvent(); stopCues(); stopGameCues(); stopPreview()
         onHearingChange?(true)
         audioNotice = "Kulaklık bağlantısı kesildi. Mikrofon ve sesler kapatıldı; çıkışı kontrol edip yeniden aç."
@@ -199,11 +220,13 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             if self.room === current { self.refresh(current) }
         }
     }
-    private func interruption(began: Bool, shouldResume: Bool) {
+    private func interruption(began: Bool, shouldResume: Bool, routeLost: Bool = false) {
         defer { if !cuesAudible { stopCues() } }
+        // Only an interruption that a lost route started alone may be ended by the route coming back.
+        if began { interruptedByRoute = routeLost && (interruptedByRoute || !recovery.interrupted) } else { interruptedByRoute = false }
         if began { recovery.interruptionBegan(microphoneEnabled: !muted) } else { recovery.interruptionEnded(shouldResume: shouldResume, now: ProcessInfo.processInfo.systemUptime) }
         audioInterrupted = recovery.interrupted; audioNeedsResume = recovery.needsAudioResume
-        diagnostics.record(began ? .interruption : .interruptionEnded)
+        diagnostics.record(began ? (routeLost ? .interruptionRoute : .interruption) : .interruptionEnded)
         guard room != nil else {
             if !began && !audioNeedsResume { recoverLostRoom() }
             return
@@ -723,7 +746,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         subscriptionEpoch.advance(); reconcileTask?.cancel(); screenTimeout?.cancel(); reconnectTimeout?.cancel(); connectTimeout?.cancel(); subscriptionRetry?.cancel()
         reconnectTimeout = nil; connectTimeout = nil; subscriptionRetry = nil; subscriptionFailures = 0
         desiredSubscriptions = [:]; microphoneBusy = false
-        rendererOwner = nil; screenRendering = false; video = nil; people = []; streams = []; watchers = [:]; selection.select(nil); muted = true; hearingMuted = false; screenMuted = false
+        rendererOwner = nil; screenRendering = false; video = nil; people = []; streams = []; watchers = [:]; selection.select(nil); muted = true; hearingMuted = false; screenMuted = false; screenMutedByRoute = false
         status = failure == nil ? "" : "Bağlantı kesildi"; error = failure; audioNotice = nil
         audioInterrupted = recovery.interrupted; audioNeedsResume = recovery.needsAudioResume
         diagnostics.record(.disconnected)
@@ -810,7 +833,11 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     /// Called with the new deafen state so the room can be told; the toggle never waits for it.
     var onHearingChange: ((Bool) -> Void)?
     func toggleHearing() {
-        hearingMuted.toggle(); hearingCarry.record(hearingMuted); refreshAudio(); onHearingChange?(hearingMuted)
+        hearingMuted.toggle(); hearingCarry.record(hearingMuted)
+        // Room sound back after a removed headset also brings back the screen-share audio the removal muted.
+        if !hearingMuted, screenMutedByRoute { screenMuted = false }
+        screenMutedByRoute = false
+        refreshAudio(); onHearingChange?(hearingMuted)
         if hearingMuted { stopCues() }
         // Deafening also mutes the microphone (desktop and Discord do the same); undeafening keeps it muted.
         if hearingMuted && !muted { Task { await toggleMicrophone(remember: false) } }
@@ -818,7 +845,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         if let room { refresh(room) }
     }
     func setScreenAudio(volume: Double? = nil, muted: Bool? = nil) {
-        if let volume { screenVolume = min(1, max(0, volume)) }; if let muted { screenMuted = muted }; refreshAudio()
+        if let volume { screenVolume = min(1, max(0, volume)) }; if let muted { screenMuted = muted; screenMutedByRoute = false }; refreshAudio()
     }
     private var rendererOwner: UUID?
     func claimRenderer(_ owner: UUID) { rendererOwner = owner; screenRendering = false; if foreground, let id = selection.id { startScreenTimeout(id) } }
