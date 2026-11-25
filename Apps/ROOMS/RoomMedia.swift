@@ -44,7 +44,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         }
         session.onUnsafeStop = { [weak self, weak current] in
             guard let self, let current else { return }
-            self.failConnection(current, message: "Kamera güvenle kapatılamadı. Odaya tekrar katıl.")
+            self.failConnection(current, message: "Kamera güvenle kapatılamadı. Odaya tekrar katıl.", loss: .safety)
         }
     }
     @Published private(set) var people: [RoomPerson] = []
@@ -81,7 +81,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     @Published private(set) var network: MediaDiagnostics.Network = .unknown
     struct AudioInput: Identifiable { let id: String; let name: String }
     private var recovery = MediaRecovery()
-    var onInterruptionRecovery: ((Bool) -> Void)?
+    /// Joins the lost voice room again (`RoomRejoin`); the Bool is the microphone an interruption took away.
+    var onRoomRecovery: ((Bool) -> Void)?
     /// LiveKit data handlers by topic; each feature registers its own (move signal, viewers, whiteboard cursors).
     private var dataHandlers: [String: (RoomDataPacket) -> Void] = [:]
     /// Who watches which screen share: viewer identity → presenter identity, from `rooms-watch-v1`.
@@ -90,7 +91,8 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     private var desiredMicrophone: Bool?
     /// Deafen follows the person into the next voice room (move, room switch, rejoin) like `desiredMicrophone`.
     private var hearingCarry = HearingCarry()
-    private var disconnectedInterruptionMicrophone: Bool?
+    /// The one automatic rejoin after a phone call or a background period cost the voice room.
+    private var rejoin = RoomRejoin()
     /// Sees phone and FaceTime calls, so a call that ended without an interruption-end notice is noticed.
     private let callObserver = CXCallObserver()
     private var diagnostics = MediaDiagnostics()
@@ -193,7 +195,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             await previous?.value
             guard let self, let current, self.room === current else { return }
             do { _ = try await current.localParticipant.setMicrophone(enabled: false) }
-            catch { if self.room === current { self.diagnostics.record(.microphoneFailed); self.failConnection(current, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.") } }
+            catch { if self.room === current { self.diagnostics.record(.microphoneFailed); self.failConnection(current, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.", loss: .safety) } }
             if self.room === current { self.refresh(current) }
         }
     }
@@ -203,7 +205,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         audioInterrupted = recovery.interrupted; audioNeedsResume = recovery.needsAudioResume
         diagnostics.record(began ? .interruption : .interruptionEnded)
         guard room != nil else {
-            if !began && !audioNeedsResume { recoverInterruptedConnection() }
+            if !began && !audioNeedsResume { recoverLostRoom() }
             return
         }
         if began {
@@ -222,17 +224,18 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         recovery.resumeAudio()
         if room == nil {
             audioNeedsResume = false
-            recoverInterruptedConnection()
+            recoverLostRoom()
             return
         }
         guard connected else { return }
         do { try AudioManager.shared.setEngineAvailability(.default); audioNeedsResume = false; audioNotice = nil; updateRoute(); restoreInterruptedMicrophone() }
         catch { diagnostics.record(.audioFailed); audioNotice = "Ses sürdürülemedi. Odaya tekrar katıl." }
     }
-    private func recoverInterruptedConnection() {
-        guard !audioInterrupted, !audioNeedsResume, let microphone = disconnectedInterruptionMicrophone else { return }
-        disconnectedInterruptionMicrophone = nil
-        onInterruptionRecovery?(microphone)
+    /// Starts the pending rejoin once it may: no interruption is on and, after a background loss, the app is in front.
+    private func recoverLostRoom() {
+        guard let microphone = rejoin.take(audioUsable: !audioInterrupted && !audioNeedsResume) else { return }
+        diagnostics.record(.rejoin)
+        onRoomRecovery?(microphone)
     }
     private func restoreInterruptedMicrophone() {
         guard recovery.shouldRestoreMicrophone, let current = room, connected, !audioNeedsResume else { return }
@@ -252,7 +255,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             } catch {
                 guard self.room === current else { return }
                 if !self.audioEventEpoch.owns(audioTicket) || !self.recovery.canUseAudio {
-                    self.failConnection(current, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.")
+                    self.failConnection(current, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.", loss: .safety)
                     return
                 }
                 self.recovery.cancelMicrophoneRestore()
@@ -266,11 +269,28 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         diagnostics.record(.servicesReset)
         if let room { failConnection(room, message: "iPhone ses sistemi yeniden başladı. Odaya tekrar katıl.") }
     }
-    private func failConnection(_ current: Room, message: String) {
+    private func failConnection(_ current: Room, message: String, loss: RoomLoss = .connection) {
         guard room === current else { return }
         Task { [weak self] in
             guard let self, self.room === current else { return }
-            await self.disconnect(failure: message)
+            await self.disconnect(failure: message, loss: loss)
+        }
+    }
+    /// LiveKit's reason for ending the connection, reduced to what decides a rejoin.
+    private static func loss(_ error: LiveKitError?) -> RoomLoss {
+        switch error?.type {
+        case .participantRemoved?, .insufficientPermissions?: .removed
+        case .duplicateIdentity?: .replaced
+        case .roomDeleted?, .cancelled?: .closed
+        default: .connection
+        }
+    }
+    private static func message(_ error: LiveKitError?) -> String {
+        switch error?.type {
+        case .participantRemoved?, .insufficientPermissions?: "Sesli odadan çıkarıldın."
+        case .duplicateIdentity?: "Bu hesapla başka bir cihazdan odaya katıldın."
+        case .roomDeleted?: "Sesli oda kapandı."
+        default: "Bağlantı kesildi. Odaya tekrar katıl."
         }
     }
 
@@ -665,7 +685,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             try AudioManager.shared.setEngineAvailability(recovery.canUseAudio ? .default : .none)
             try await room.connect(url: grant.serverUrl, token: grant.token, connectOptions: ConnectOptions(autoSubscribe: false, reconnectAttempts: 5, reconnectAttemptDelay: 1, reconnectMaxDelay: 7, socketConnectTimeoutInterval: 15, primaryTransportConnectTimeout: 20))
             guard self.room === room, recovery.owns(ticket), !Task.isCancelled else { await room.disconnect(); throw CancellationError() }
-            connectTimeout?.cancel(); recovery.connected(); status = "Bağlandı"; updateRoute(); refresh(room)
+            connectTimeout?.cancel(); recovery.connected(); rejoin.connected(); status = "Bağlandı"; updateRoute(); refresh(room)
             // The room is told only now that it is up; the person never has to deafen again after a move.
             if hearingMuted { refreshAudio(); stopCues(); onHearingChange?(true) }
         } catch {
@@ -673,22 +693,28 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             throw error
         }
     }
-    @discardableResult func disconnect(failure: String? = nil) async -> UInt64 {
+    /// `loss` says why a failed connection ended; it decides whether the room comes back by itself.
+    @discardableResult func disconnect(failure: String? = nil, loss: RoomLoss = .connection) async -> UInt64 {
         // Before the engine stops, so playback that outlives the call (Sinema, a chat video) leaves the call category.
         RoomAudioSession.shared.callEnded()
         // Before the reset below, so a deafened listener stays silent.
         updateCues(channel: nil, connected: false, roster: [])
+        let voiceRoom = soundChannel != nil
         soundChannel = nil
         if sharingScreen || BroadcastManager.shared.isBroadcasting {
             BroadcastManager.shared.requestStop()
             let lease = screenLease; Task { try? await lease?(false) }
         }
         sharingScreen = false; screenLease = nil
-        // A phone call suspends the app; the room it drops during or right after the call comes back once.
-        let rejoin = failure != nil && recovery.rejoinsLostConnection(now: ProcessInfo.processInfo.systemUptime)
-        if rejoin {
-            disconnectedInterruptionMicrophone = recovery.interruptedMicrophoneIntent
-        } else { disconnectedInterruptionMicrophone = nil }
+        // A phone call or a background period can cost the room; it comes back once unless someone ended it on purpose.
+        let rejoins: Bool
+        if failure != nil {
+            let now = ProcessInfo.processInfo.systemUptime
+            rejoins = rejoin.lost(loss, established: recovery.phase == .connected || recovery.phase == .reconnecting,
+                                  voiceRoom: voiceRoom, duringInterruption: recovery.rejoinsLostConnection(now: now),
+                                  microphone: recovery.interruptedMicrophoneIntent, now: now)
+            if loss == .removed { diagnostics.record(.removed) } else if loss == .replaced { diagnostics.record(.replaced) }
+        } else { rejoin.cancel(); rejoins = false }
         recovery.cancelRejoin()
         pictureInPicture.teardown(); let previousCamera = cameraSession; previousCamera?.invalidate(); cameraSession = nil; cameraTransport = nil; camera = CameraSnapshot(); cameras = []; cameraAllowed = false; visibleCameraIDs = []
         let previous = room; room = nil; configuredMicrophone = nil
@@ -712,10 +738,11 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         cleanupTask = cleanup
         await cleanup.value
         if recovery.owns(ticket) { cleanupTask = nil }
-        if rejoin, recovery.owns(ticket) {
+        if rejoins, recovery.owns(ticket), rejoin.isPending {
             error = nil
-            status = audioInterrupted ? "Arama bitince odaya yeniden bağlanılacak." : "Odaya yeniden bağlanılıyor…"
-            recoverInterruptedConnection()
+            status = audioInterrupted ? "Arama bitince odaya yeniden bağlanılacak."
+                : rejoin.waitsForReturn ? "Uygulamaya dönünce odaya yeniden bağlanılacak." : "Odaya yeniden bağlanılıyor…"
+            recoverLostRoom()
         }
         return ticket
     }
@@ -771,11 +798,11 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
             if self.room === room {
                 self.diagnostics.record(.microphoneFailed)
                 if enable && (!recovery.canUseAudio || !audioEventEpoch.owns(audioTicket)) {
-                    failConnection(room, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.")
+                    failConnection(room, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.", loss: .safety)
                 } else if !enable {
                     // A microphone that may still be live while the person asked for silence is not left running.
                     if connected { self.error = "Mikrofon kapatılamadı. Tekrar dene."; refresh(room) }
-                    else { failConnection(room, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.") }
+                    else { failConnection(room, message: "Mikrofon güvenle kapatılamadı. Odaya tekrar katıl.", loss: .safety) }
                 } else { self.error = "Mikrofon açılamadı. Dinlemeye devam edebilirsin."; refresh(room) }
             }
         }
@@ -824,10 +851,15 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         let keepCamera = !value && pictureInPictureActive && cameraTransport?.runsInBackground == true
         if let session = cameraSession { Task { await session.setForeground(value, keepRunning: keepCamera) } }
         diagnostics.record(value ? .foreground : .background)
+        let now = ProcessInfo.processInfo.systemUptime
+        if value { rejoin.returned(now: now) }
+        else { rejoin.wentToBackground(established: room != nil && (recovery.phase == .connected || recovery.phase == .reconnecting)) }
         // iOS does not always report the end of an interruption; back in the app with no call, it is over.
         if value, recovery.interrupted, !callObserver.calls.contains(where: { !$0.hasEnded }) {
             interruption(began: false, shouldResume: true)
         }
+        // A room lost while the app was away comes back now.
+        if value, room == nil { recoverLostRoom() }
         if value, let room, recovery.expired(ticket: recovery.ticket, now: ProcessInfo.processInfo.systemUptime) {
             diagnostics.record(.timeout); failConnection(room, message: "Bağlantı süresi doldu. Odaya tekrar katıl."); return
         }
@@ -1016,11 +1048,11 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         Task { @MainActor [weak self] in
             guard let self, self.room === room else { return }
             switch state {
-            case .connected: self.recovery.connected(); self.restoreInterruptedMicrophone(); self.diagnostics.record(.connected); self.updateRoute(); self.reconnectTimeout?.cancel(); self.reconnectTimeout = nil; self.desiredSubscriptions = [:]; self.configuredMicrophone = nil; self.announcedWatch = .none; self.status = "Bağlandı"; self.refresh(room)
+            case .connected: self.recovery.connected(); self.rejoin.connected(); self.restoreInterruptedMicrophone(); self.diagnostics.record(.connected); self.updateRoute(); self.reconnectTimeout?.cancel(); self.reconnectTimeout = nil; self.desiredSubscriptions = [:]; self.configuredMicrophone = nil; self.announcedWatch = .none; self.status = "Bağlandı"; self.refresh(room)
             case .connecting: self.status = "Odaya bağlanılıyor…"
             case .reconnecting: self.beginReconnect(room)
             case .disconnecting: self.status = "Odadan ayrılınıyor…"
-            case .disconnected: self.failConnection(room, message: "Bağlantı kesildi. Odaya tekrar katıl.")
+            case .disconnected: self.failConnection(room, message: Self.message(room.disconnectError), loss: Self.loss(room.disconnectError))
             @unknown default: self.status = "Bağlantı kesildi"
             }
         }
@@ -1035,7 +1067,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
     private func beginReconnect(_ room: Room) {
         updateCues(channel: room.name ?? "room", connected: false, roster: [])
         if let session = cameraSession { Task { await session.stop() } }
-        recovery.reconnect(now: ProcessInfo.processInfo.systemUptime)
+        recovery.reconnect(now: ProcessInfo.processInfo.systemUptime); rejoin.reconnecting(now: ProcessInfo.processInfo.systemUptime)
         status = "Bağlantı kesildi. Yeniden deneniyor."
         guard reconnectTimeout == nil else { return }
         diagnostics.record(.reconnecting)
@@ -1049,7 +1081,7 @@ struct ScreenStream: Identifiable { let id: String; let participantID: String; l
         }
     }
     nonisolated func room(_ room: Room, didStartReconnectWithMode mode: ReconnectMode) { Task { @MainActor [weak self] in guard let self, self.room === room else { return }; self.beginReconnect(room) } }
-    nonisolated func room(_ room: Room, didCompleteReconnectWithMode mode: ReconnectMode) { Task { @MainActor [weak self] in guard let self, self.room === room else { return }; self.recovery.connected(); self.restoreInterruptedMicrophone(); self.updateRoute(); self.reconnectTimeout?.cancel(); self.reconnectTimeout = nil; self.desiredSubscriptions = [:]; self.configuredMicrophone = nil; self.announcedWatch = .none; self.status = "Bağlandı"; self.refresh(room) } }
+    nonisolated func room(_ room: Room, didCompleteReconnectWithMode mode: ReconnectMode) { Task { @MainActor [weak self] in guard let self, self.room === room else { return }; self.recovery.connected(); self.rejoin.connected(); self.restoreInterruptedMicrophone(); self.updateRoute(); self.reconnectTimeout?.cancel(); self.reconnectTimeout = nil; self.desiredSubscriptions = [:]; self.configuredMicrophone = nil; self.announcedWatch = .none; self.status = "Bağlandı"; self.refresh(room) } }
 }
 
 /// Whether a personal cue already played or fell back; the clip and the deadline race on the main actor.

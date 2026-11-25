@@ -67,7 +67,7 @@ public struct MediaRecovery: Sendable {
 public struct MediaDiagnostics: Sendable {
     public enum Network: String, Sendable { case unknown, offline, wifi, cellular, wired, other }
     public enum Route: String, Sendable { case none, speaker, receiver, headphones, bluetooth, airplay, other }
-    public enum Event: String, Sendable { case joining, connected, reconnecting, disconnected, timeout, interruption, interruptionEnded, routeChanged, routeRemoved, servicesReset, background, foreground, subscriptionFailed, microphoneFailed, audioFailed }
+    public enum Event: String, Sendable { case joining, connected, reconnecting, disconnected, timeout, interruption, interruptionEnded, routeChanged, routeRemoved, servicesReset, background, foreground, subscriptionFailed, microphoneFailed, audioFailed, removed, replaced, rejoin }
     public private(set) var events: [Event] = []
     public init() {}
     public mutating func record(_ event: Event) { events.append(event); if events.count > 20 { events.removeFirst(events.count - 20) } }

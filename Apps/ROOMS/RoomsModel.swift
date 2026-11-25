@@ -386,10 +386,11 @@ import RoomsCore
             guard self.roomEpoch.owns(ticket), !Task.isCancelled else { return }
             self.active = target
             let login = self.sessionEpoch.advanceForRead()
-            self.media.onInterruptionRecovery = { [weak self] microphone in
+            // After a phone call or a background period cost this room (`RoomRejoin`). The screen the person is on stays.
+            self.media.onRoomRecovery = { [weak self] microphone in
                 guard let self, self.sessionEpoch.owns(login), self.roomEpoch.owns(ticket),
                       self.active?.id == target.id, self.user != nil, !self.busy else { return }
-                self.join(target, resumeInterruptedMicrophone: microphone)
+                self.join(target, resumeInterruptedMicrophone: microphone, expand: false)
             }
             do {
                 let grant = try await api.grant(channel: target.id)

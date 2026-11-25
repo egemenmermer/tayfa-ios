@@ -134,7 +134,7 @@ import RoomsCore
                 let grant = try await api.dmCallGrant(callID: callID)
                 guard valid() else { return }
                 // The voice room's automatic rejoin must not pull the connection back into a room.
-                media.onInterruptionRecovery = nil
+                media.onRoomRecovery = nil
                 try await media.connect(grant: grant)
                 guard valid(), let self else { await media.disconnect(); return }
                 self.connected = true
